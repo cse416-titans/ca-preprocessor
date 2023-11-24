@@ -1,5 +1,6 @@
 /units
 /plots
+/misc
 
 # ignore json
 *.json

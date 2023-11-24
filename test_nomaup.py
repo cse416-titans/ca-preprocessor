@@ -14,6 +14,7 @@ from gerrychain import (
 )
 from gerrychain.proposals import recom
 from functools import partial
+from polygonUtil import close_holes
 
 """
 REQUIRED FILES:
@@ -73,12 +74,41 @@ for partition in chain:
         # update unit's assignment
         units["SLDL_DIST"] = partition.assignment
 
+        # convert unit's coordinates to lat/lon
+        units["geometry"] = units["geometry"].to_crs(4326)
+
         # save new units into json
         units.to_file("./units/az_pl2020_vtd_" + str(i) + ".json", driver="GeoJSON")
 
         partition.plot(units, cmap="tab20")
         plt.axis("off")
         plt.savefig("./plots/az_pl2020_vtd_" + str(i) + ".png")
+
+        units_copy = units.copy()
+        # drop geometry column in units_copy
+        # units_copy = units_copy.drop(columns="geometry")
+
+        # create a new dataframe which aggregates the units to the district level and for its geometry, takes the union of the unit geometries
+        districts = units_copy.dissolve(by="SLDL_DIST", aggfunc="sum")
+
+        # drop PCTNUM and PRECINCTNA column
+        districts = districts.drop(columns=["PCTNUM", "PRECINCTNA"])
+
+        # make geometry smooth
+        districts["geometry"] = districts["geometry"].simplify(
+            0.0001, preserve_topology=True
+        )
+
+        # remove interior boundaries
+        districts["geometry"] = districts["geometry"].apply(lambda x: x.buffer(0))
+
+        # fill in any holes in the geometry
+        districts["geometry"] = districts["geometry"].apply(lambda p: close_holes(p))
+
+        # save the districts into a json
+        districts.to_file(
+            "./districts/az_pl2020_sldl_" + str(i) + ".json", driver="GeoJSON"
+        )
 
         # To see the plot, uncomment the following lines
         # plt.axis("off")
