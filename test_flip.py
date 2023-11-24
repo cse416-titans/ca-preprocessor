@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 
 graph = Graph.from_json("./PA_VTDs.json")
 
+print(graph)
+
 election = Election("SEN12", {"Dem": "USS12D", "Rep": "USS12R"})
 
 initial_partition = Partition(
@@ -35,16 +37,31 @@ chain = MarkovChain(
     total_steps=1000
 )
 
-"""
+i=0
 for partition in chain:
-    print(sorted(partition["SEN12"].percents("Dem")))
-""" 
+    if i>2:
+        break
+    dd = pandas.DataFrame(partition.graph.nodes(data=True))
+    print(dd)
+    i+=1
 
 d_percents = [sorted(partition["SEN12"].percents("Dem")) for partition in chain]
 
 data = pandas.DataFrame(d_percents)
 
+a = [partition for partition in chain]
+
+b = pandas.DataFrame(a[0]['SEN12'].percents('Dem'))
+
+print(b)
+
+initial_partition.plot(units, figsize=(10, 10), cmap="tab20")
+plt.axis('off')
+plt.show()
+
+"""
 ax = data.boxplot(positions=range(len(data.columns)))
 plt.plot(data.iloc[0], "ro")
 
 plt.show()
+"""

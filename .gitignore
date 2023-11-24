@@ -1,0 +1,6 @@
+/units
+/plots
+
+# ignore json
+*.json
+*.zip

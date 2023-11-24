@@ -1,4 +1,3 @@
-import maup
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -17,34 +16,31 @@ from gerrychain.proposals import recom
 from functools import partial
 
 # load in the vtd and district shapefiles
-units = gpd.read_file("az_pl2020_vtd.zip").to_crs(32030)
-districts = gpd.read_file("az_sl_adopted_2022.zip").to_crs(32030)
+units = gpd.read_file("azjson.json").to_crs(32030)
 
 print(list(units.columns))
 
-print(list(districts.columns))
-
 # configure updaters for the recom chain
-# elections = [Election("PRED20", {"Dem": "G20PREDBID", "Rep": "G20PRERTRU"})]
-my_updaters = {"population": updaters.Tally("POP100", alias="population")}
-# election_updaters = {election.name: election for election in elections}
-# my_updaters.update(election_updaters)
+elections = [Election("PRED20", {"Dem": "G20PREDBID", "Rep": "G20PRERTRU"})]
+my_updaters = {"population": updaters.Tally("Total_Population", alias="population")}
+election_updaters = {election.name: election for election in elections}
+my_updaters.update(election_updaters)
 
 # print(units)
 # print(districts)
 
 # assign districts to vtds
-assignment = maup.assign(units, districts)
+# assignment = maup.assign(units, districts)
 
 
-print(assignment.isna().sum())
+# print(assignment.isna().sum())
 
-units["SLDIST"] = assignment
+# units["SLDL_DIST"] = assignment
 
 graph = Graph.from_geodataframe(units)
 
 initial_partition = GeographicPartition(
-    graph, assignment="SLDIST", updaters=my_updaters
+    graph, assignment="SLDL_DIST", updaters=my_updaters
 )
 
 ideal_population = sum(initial_partition["population"].values()) / len(
@@ -53,7 +49,7 @@ ideal_population = sum(initial_partition["population"].values()) / len(
 
 proposal = partial(
     recom,
-    pop_col="POP100",
+    pop_col="Total_Population",
     pop_target=ideal_population,
     epsilon=0.1,
     node_repeats=2,
@@ -75,7 +71,7 @@ chain = MarkovChain(
 
 i = 0
 for partition in chain:
-    if i > 30:
+    if i > 100:
         break
 
     i += 1
@@ -83,7 +79,7 @@ for partition in chain:
     if i % 10 == 0:
         print(i)
         # update unit's assignment
-        units["SLDIST"] = partition.assignment
+        units["SLDL_DIST"] = partition.assignment
 
         # save new units into json
         units.to_file("./units/az_pl2020_vtd_" + str(i) + ".json", driver="GeoJSON")
