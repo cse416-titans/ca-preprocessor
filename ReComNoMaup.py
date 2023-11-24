@@ -12,14 +12,27 @@ from gerrychain import (
     accept,
     Election,
 )
+
 from gerrychain.proposals import recom
 from functools import partial
 from polygonUtil import close_holes
+
+from datetime import datetime
+from os import makedirs
 
 """
 REQUIRED FILES:
 1. azjson.json (aggregated precinct level census + election + district_plan shapefile)
 """
+
+start_time = datetime.now()
+
+# create directory named units, plots, districts, districts_reassigned, plots_reassigned if they don't exist
+makedirs("units", exist_ok=True)
+makedirs("plots", exist_ok=True)
+makedirs("districts", exist_ok=True)
+makedirs("districts_reassigned", exist_ok=True)
+makedirs("plots_reassigned", exist_ok=True)
 
 # load in the json
 units = gpd.read_file("azjson.json").to_crs(32030)
@@ -85,8 +98,6 @@ for partition in chain:
         plt.savefig("./plots/az_pl2020_vtd_" + str(i) + ".png")
 
         units_copy = units.copy()
-        # drop geometry column in units_copy
-        # units_copy = units_copy.drop(columns="geometry")
 
         # create a new dataframe which aggregates the units to the district level and for its geometry, takes the union of the unit geometries
         districts = units_copy.dissolve(by="SLDL_DIST", aggfunc="sum")
@@ -94,16 +105,19 @@ for partition in chain:
         # drop PCTNUM and PRECINCTNA column
         districts = districts.drop(columns=["PCTNUM", "PRECINCTNA"])
 
+        # avoid self-intersection
+        districts["geometry"] = districts["geometry"].buffer(0)
+
         # make geometry smooth
         districts["geometry"] = districts["geometry"].simplify(
             0.0001, preserve_topology=True
         )
 
-        # remove interior boundaries
-        districts["geometry"] = districts["geometry"].apply(lambda x: x.buffer(0))
-
         # fill in any holes in the geometry
         districts["geometry"] = districts["geometry"].apply(lambda p: close_holes(p))
+
+        # print if the polygon is valid
+        # print(districts["geometry"].is_valid)
 
         # save the districts into a json
         districts.to_file(
@@ -113,3 +127,7 @@ for partition in chain:
         # To see the plot, uncomment the following lines
         # plt.axis("off")
         # plt.show()
+
+end_time = datetime.now()
+
+print("Duration: ", end_time - start_time)

@@ -1,6 +1,8 @@
 /units
 /plots
 /misc
+/districts_reassigned
+/plots_reassigned
 
 # ignore json
 *.json
