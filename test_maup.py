@@ -16,6 +16,14 @@ from gerrychain import (
 from gerrychain.proposals import recom
 from functools import partial
 
+
+"""
+REQUIRED FILES:
+1. az_pl2020_vtd.zip (vtd level census shapefile)
+2. az_sl_adopted_2022.zip (district plan shapefile)
+3. az_prim_20_prec.zip (precinct level election shapefile)
+"""
+
 # load in the vtd and district shapefiles
 units = gpd.read_file("az_pl2020_vtd.zip").to_crs(32030)
 districts = gpd.read_file("az_sl_adopted_2022.zip").to_crs(32030)

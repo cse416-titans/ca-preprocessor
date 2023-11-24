@@ -15,27 +15,19 @@ from gerrychain import (
 from gerrychain.proposals import recom
 from functools import partial
 
+"""
+REQUIRED FILES:
+1. azjson.json (aggregated precinct level census + election + district_plan shapefile)
+"""
+
 # load in the vtd and district shapefiles
 units = gpd.read_file("azjson.json").to_crs(32030)
-
-print(list(units.columns))
 
 # configure updaters for the recom chain
 elections = [Election("PRED20", {"Dem": "G20PREDBID", "Rep": "G20PRERTRU"})]
 my_updaters = {"population": updaters.Tally("Total_Population", alias="population")}
 election_updaters = {election.name: election for election in elections}
 my_updaters.update(election_updaters)
-
-# print(units)
-# print(districts)
-
-# assign districts to vtds
-# assignment = maup.assign(units, districts)
-
-
-# print(assignment.isna().sum())
-
-# units["SLDL_DIST"] = assignment
 
 graph = Graph.from_geodataframe(units)
 
