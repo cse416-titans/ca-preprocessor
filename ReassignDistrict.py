@@ -23,7 +23,7 @@ original_plan = original_plan.to_crs(32030)
 # print if the polygon is valid
 # print("original plan:\n", original_plan.geometry.is_valid)
 
-original_plan["geometry"] = original_plan["geometry"].buffer(0)
+# original_plan["geometry"] = original_plan["geometry"].buffer(0)
 
 # recheck if the polygon is valid
 # print("recheck original plan:\n", original_plan.geometry.is_valid)
@@ -35,6 +35,8 @@ for i in range(20, 110, 10):
     print("For new plan", i, ":")
 
     # for each district in new_plan, find the district in original_plan that has the most similar geometry
+    taken = []
+
     for district in new_plan["SLDL_DIST"].unique():
         # get the geometry of the current district in new_plan
         # print("i:", i, "district:", district)
@@ -44,9 +46,6 @@ for i in range(20, 110, 10):
         # validate the geometry
         # print("new plan:\n", new_plan_district.geometry.is_valid)
 
-        # buffer the geometry to avoid self-intersection
-        new_plan_district["geometry"] = new_plan_district["geometry"].buffer(0)
-
         # recheck if the polygon is valid
         # print("recheck new plan:\n", new_plan_district.geometry.is_valid)
 
@@ -54,6 +53,9 @@ for i in range(20, 110, 10):
         max_similarity = 0
         max_similarity_district = None
         for original_district in original_plan["SLDL_DIST"].unique():
+            if original_district in taken:
+                continue
+
             # get the geometry of the current district in original_plan
             original_plan_district = original_plan.loc[
                 original_plan["SLDL_DIST"] == original_district
@@ -66,6 +68,8 @@ for i in range(20, 110, 10):
                 new_plan_district, original_plan_district, how="intersection"
             )
 
+            # calculate similarity based on those two factors
+
             similarity = (
                 intersection["geometry"].area.sum()
                 / new_plan_district["geometry"].area.sum()
@@ -77,9 +81,14 @@ for i in range(20, 110, 10):
                 max_similarity_district = original_district
 
         # update the district number of the current district in new_plan
-        new_plan.loc[
-            new_plan["SLDL_DIST"] == district, "SLDL_DIST"
-        ] = max_similarity_district
+        if max_similarity_district is None:
+            print("no max similarity district found for district", district)
+        else:
+            new_plan.loc[
+                new_plan["SLDL_DIST"] == district, "NEW_SLDL_DIST"
+            ] = max_similarity_district
+
+        taken.append(max_similarity_district)
 
         print(
             "for district",
@@ -87,6 +96,15 @@ for i in range(20, 110, 10):
             ", max similarity district:",
             max_similarity_district,
         )
+
+    # check if unique
+    print("unique:", new_plan["NEW_SLDL_DIST"].is_unique)
+
+    # drop the old SLDL_DIST column
+    new_plan = new_plan.drop(columns=["SLDL_DIST"])
+
+    # rename the NEW_SLDL_DIST column to SLDL_DIST
+    new_plan = new_plan.rename(columns={"NEW_SLDL_DIST": "SLDL_DIST"})
 
     # revert its crs back to 4326
     new_plan["geometry"] = new_plan["geometry"].to_crs(4326)
