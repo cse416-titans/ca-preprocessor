@@ -62,3 +62,10 @@ def close_holes(geom):
         return Polygon(big)
     if isinstance(geom, Polygon):
         return remove_interiors(geom)
+
+
+def formatStr(n):
+    if n < 10:
+        return "0" + str(n)
+    else:
+        return str(n)

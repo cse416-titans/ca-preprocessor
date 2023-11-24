@@ -72,17 +72,17 @@ chain = MarkovChain(
     constraints=[pop_constraint, compactness_bound],
     accept=accept.always_accept,
     initial_state=initial_partition,
-    total_steps=1000,
+    total_steps=10000,
 )
 
 i = 0
 for partition in chain:
-    if i > 100:
+    if i > 10000:
         break
 
     i += 1
 
-    if i % 10 == 0:
+    if i % 1000 == 0:
         print(i)
         # update unit's assignment
         units["SLDL_DIST"] = partition.assignment
