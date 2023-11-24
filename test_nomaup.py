@@ -20,7 +20,7 @@ REQUIRED FILES:
 1. azjson.json (aggregated precinct level census + election + district_plan shapefile)
 """
 
-# load in the vtd and district shapefiles
+# load in the json
 units = gpd.read_file("azjson.json").to_crs(32030)
 
 # configure updaters for the recom chain
@@ -83,10 +83,3 @@ for partition in chain:
         # To see the plot, uncomment the following lines
         # plt.axis("off")
         # plt.show()
-
-"""
-real_life_plan = Partition(graph, "SLDIST", {"population": "TOTPOP"})
-real_life_plan.plot(units, cmap="tab20")
-plt.axis("off")
-plt.show()
-"""
