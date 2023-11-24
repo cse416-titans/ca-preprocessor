@@ -8,6 +8,10 @@ import numpy as np
 from numpy import unravel_index
 from polygonUtil import formatStr
 
+import multiprocessing as mp
+from multiprocessing import Pool
+import math
+
 warnings.filterwarnings("ignore")
 
 start_time = datetime.now()
@@ -17,25 +21,29 @@ REQUIRED FILES:
 1. 10 jsons in ./districts
 """
 
-# open all the jsons in ./districts, and reassign district numbers (that means, update SLDL_DIST column) to match the district numbers of the first json based on its geometric similarity
-# save the new jsons into ./districts_reassigned
 
-original_plan = gpd.read_file("./districts/az_pl2020_sldl_1000.json")
-original_plan = original_plan.to_crs(32030)
+def reassign(arg):
+    # open all the jsons in ./districts, and reassign district numbers (that means, update SLDL_DIST column) to match the district numbers of the first json based on its geometric similarity
+    # save the new jsons into ./districts_reassigned
 
-# print if the polygon is valid
-# print("original plan:\n", original_plan.geometry.is_valid)
+    original_plan = gpd.read_file(f"./districts/az_pl2020_sldl_{1000}.json")
+    original_plan = original_plan.to_crs(32030)
 
-# original_plan["geometry"] = original_plan["geometry"].buffer(0)
+    # print if the polygon is valid
+    # print("original plan:\n", original_plan.geometry.is_valid)
 
-# recheck if the polygon is valid
-# print("recheck original plan:\n", original_plan.geometry.is_valid)
+    # original_plan["geometry"] = original_plan["geometry"].buffer(0)
 
-for i in range(1000, 11000, 1000):
-    new_plan = gpd.read_file("./districts/az_pl2020_sldl_" + str(i) + ".json")
+    # recheck if the polygon is valid
+    # print("recheck original plan:\n", original_plan.geometry.is_valid)
+
+    """
+    for i in range(2000, 11000, 1000):
+    """
+    new_plan = gpd.read_file("./districts/az_pl2020_sldl_" + str(arg) + ".json")
     new_plan = new_plan.to_crs(32030)
 
-    print("For new plan", i, ":")
+    print("For new plan", arg, ":")
 
     # for each district in new_plan, find the district in original_plan that has the most similar geometry
 
@@ -152,7 +160,8 @@ for i in range(1000, 11000, 1000):
 
     # save the new_plan into ./districts_reassigned
     new_plan.to_file(
-        "./districts_reassigned/az_pl2020_sldl_" + str(i) + ".json", driver="GeoJSON"
+        "./districts_reassigned/az_pl2020_sldl_" + str(arg) + ".json",
+        driver="GeoJSON",
     )
 
     # also save its plot
@@ -166,9 +175,26 @@ for i in range(1000, 11000, 1000):
     )
 
     plt.axis("off")
-    plt.savefig("./plots_reassigned/az_pl2020_sldl_" + str(i) + ".png")
+    plt.savefig("./plots_reassigned/az_pl2020_sldl_" + str(arg) + ".png")
 
 
 end_time = datetime.now()
 
 print("Duration: {}".format(end_time - start_time))
+
+
+if __name__ == "__main__":
+    NUM_PROJECTED_PLANS = 10000
+    # get number of cores
+
+    NUM_PLANS_PER_CORE = math.ceil(NUM_PROJECTED_PLANS / mp.cpu_count())
+
+    print("NUM_PLANS_PER_CORE:", NUM_PLANS_PER_CORE)
+
+    """
+    [1...NUM_CORES] folders be made in the units, plots, districts, districts_reassigned, plots_reassigned folders.
+    Each folder will have NUM_PLANS_PER_CORE plans inside it.
+    """
+
+    with Pool(processes=9) as pool:
+        pool.map(reassign, [x for x in range(2000, 11000, 1000)])
