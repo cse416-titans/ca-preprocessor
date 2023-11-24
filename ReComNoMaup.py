@@ -38,7 +38,7 @@ makedirs("districts_reassigned", exist_ok=True)
 makedirs("plots_reassigned", exist_ok=True)
 
 
-def makeRandomPlans(arg):
+def makeRandomPlansNoMaup(arg):
     # load in the json
     units = gpd.read_file("azjson.json").to_crs(32030)
 
@@ -142,7 +142,7 @@ def makeRandomPlans(arg):
     print("Duration: ", end_time - start_time)
 
 
-if __name__ == "__main__":
+def start():
     NUM_PROJECTED_PLANS = 10000
     # get number of cores
 
@@ -157,5 +157,9 @@ if __name__ == "__main__":
 
     """
     with Pool(processes=NUM_PLANS_PER_CORE) as pool:
-        pool.map(makeRandomPlans, list(range(NUM_PLANS_PER_CORE)))
+        pool.map(makeRandomPlansNoMaup, list(range(NUM_PLANS_PER_CORE)))
     """
+
+
+if __name__ == "__main__":
+    pass

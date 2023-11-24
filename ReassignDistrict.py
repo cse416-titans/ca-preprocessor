@@ -29,14 +29,6 @@ def reassign(arg):
     original_plan = gpd.read_file(f"./districts/az_pl2020_sldl_{1000}.json")
     original_plan = original_plan.to_crs(32030)
 
-    # print if the polygon is valid
-    # print("original plan:\n", original_plan.geometry.is_valid)
-
-    # original_plan["geometry"] = original_plan["geometry"].buffer(0)
-
-    # recheck if the polygon is valid
-    # print("recheck original plan:\n", original_plan.geometry.is_valid)
-
     """
     for i in range(2000, 11000, 1000):
     """
@@ -46,34 +38,16 @@ def reassign(arg):
     print("For new plan", arg, ":")
 
     # for each district in new_plan, find the district in original_plan that has the most similar geometry
-
     matrix = np.zeros((len(new_plan), len(original_plan)))  # 30 x 30
 
     for district in new_plan["SLDL_DIST"].unique():
-        # get the geometry of the current district in new_plan
-        # print("i:", i, "district:", district)
         new_plan_district = new_plan.loc[new_plan["SLDL_DIST"] == district]
-        # print("new plan district:\n", new_plan_district)
-
-        # validate the geometry
-        # print("new plan:\n", new_plan_district.geometry.is_valid)
-
-        # recheck if the polygon is valid
-        # print("recheck new plan:\n", new_plan_district.geometry.is_valid)
 
         # find intersection between the current district in new_plan and all the districts in original_plan
         for original_district in original_plan["SLDL_DIST"].unique():
-            # print("j:", j)
             original_plan_district = original_plan.loc[
                 original_plan["SLDL_DIST"] == original_district
             ]
-            # print("original plan district:\n", original_plan_district)
-
-            # validate the geometry
-            # print("original plan:\n", original_plan_district.geometry.is_valid)
-
-            # recheck if the polygon is valid
-            # print("recheck original plan:\n", original_plan_district.geometry.is_valid)
 
             # find the intersection between the two districts
             intersection = gpd.overlay(
@@ -99,26 +73,15 @@ def reassign(arg):
                 + 1e4 * (1 / perimeter_difference)
             )
 
-            # print("similarity:", similarity)
-
-            # print("intersection:\n", intersection)
-            # print("area:\n", area)
-
             # save the area into the matrix if it is not itself
             if district != original_district:
                 matrix[int(district) - 1][int(original_district) - 1] = similarity
-
-    # print("matrix:\n", matrix)
-
-    # find the highest similarity for each district in new_plan
-    # print("max:\n", unravel_index(matrix.argmax(), matrix.shape))
 
     # initialize NEW_SLDL_DIST column
     new_plan["NEW_SLDL_DIST"] = 0
 
     while np.any(matrix):
         idx = unravel_index(matrix.argmax(), matrix.shape)
-        # print("idx:", idx[0], idx[1])
         dist = matrix[idx[0], idx[1]]
 
         # reassign new_plans idx[0]th district to original_plans idx[1]th district
