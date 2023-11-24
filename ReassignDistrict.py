@@ -83,10 +83,11 @@ for i in range(20, 110, 10):
         # update the district number of the current district in new_plan
         if max_similarity_district is None:
             print("no max similarity district found for district", district)
-        else:
-            new_plan.loc[
-                new_plan["SLDL_DIST"] == district, "NEW_SLDL_DIST"
-            ] = max_similarity_district
+            max_similarity_district = district
+
+        new_plan.loc[
+            new_plan["SLDL_DIST"] == district, "NEW_SLDL_DIST"
+        ] = max_similarity_district
 
         taken.append(max_similarity_district)
 
