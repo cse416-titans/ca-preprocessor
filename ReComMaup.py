@@ -158,13 +158,13 @@ def makeRandomPlansNoMaup(id, lock):
 
         # save new units into json
         units.to_file(
-            f"./units/az_pl2020_vtd_{procId}_{x}.json",
+            f"./units/az_pl2020_vtd_{procId + x + procId-1}.json",
             driver="GeoJSON",
         )
 
         partition.plot(units, cmap="tab20")
         plt.axis("off")
-        plt.savefig(f"./plots/az_pl2020_vtd_{procId}_{x}.png")
+        plt.savefig(f"./plots/az_pl2020_vtd_{procId + x + procId-1}.png")
         plt.close()
 
         units_copy = units.copy()
@@ -191,7 +191,7 @@ def makeRandomPlansNoMaup(id, lock):
 
         # save the districts into a json
         districts.to_file(
-            f"./districts/az_pl2020_sldl_{procId}_{x}.json",
+            f"./districts/az_pl2020_sldl_{procId + x + procId-1}.json",
             driver="GeoJSON",
         )
 

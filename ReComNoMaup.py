@@ -106,8 +106,6 @@ def initWorker():
 
 
 def makeRandomPlansNoMaup(id, lock):
-    start_time = datetime.now()
-
     for x in range(NUM_PROJECTED_PLANS_PER_CORE):
         procId = id + 1
 
@@ -127,13 +125,13 @@ def makeRandomPlansNoMaup(id, lock):
 
         # save new units into json
         units.to_file(
-            f"./units/az_pl2020_vtd_{procId}_{x}.json",
+            f"./units/plan-{procId + x + procId-1}.json",
             driver="GeoJSON",
         )
 
         partition.plot(units, cmap="tab20")
         plt.axis("off")
-        plt.savefig(f"./plots/az_pl2020_vtd_{procId}_{x}.png")
+        plt.savefig(f"./plots/plan-{procId + x + procId-1}.png")
         plt.close()
 
         units_copy = units.copy()
@@ -160,7 +158,7 @@ def makeRandomPlansNoMaup(id, lock):
 
         # save the districts into a json
         districts.to_file(
-            f"./districts/az_pl2020_sldl_{procId}_{x}.json",
+            f"./districts/plan-{procId + x + procId-1}.json",
             driver="GeoJSON",
         )
 
@@ -170,16 +168,14 @@ def makeRandomPlansNoMaup(id, lock):
 
         lock.release()
 
-    end_time = datetime.now()
-
-    print("Duration: ", end_time - start_time)
-
 
 def start():
     """
     [1...NUM_CORES] folders be made in the units, plots, districts, districts_reassigned, plots_reassigned folders.
     Each folder will have NUM_PLANS_PER_CORE plans inside it.
     """
+
+    start_time = datetime.now()
 
     m = Manager()
     l = m.Lock()
@@ -188,9 +184,12 @@ def start():
 
     with Pool(initializer=initWorker, processes=NUM_CORES) as pool:
         result = pool.map(func, range(NUM_CORES))
+        pool.close()
+        pool.join()
 
-    pool.close()
-    pool.join()
+    end_time = datetime.now()
+
+    print("Duration: ", end_time - start_time)
 
 
 if __name__ == "__main__":

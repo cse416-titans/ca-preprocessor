@@ -3,6 +3,7 @@
 /misc
 /districts_reassigned
 /plots_reassigned
+/clusters
 
 # ignore json
 *.json

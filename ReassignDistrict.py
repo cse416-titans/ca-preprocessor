@@ -31,12 +31,10 @@ def initWorker():
 
 
 def reassign(arg):
-    start_time = datetime.now()
-
     # open all the jsons in ./districts, and reassign district numbers (that means, update SLDL_DIST column) to match the district numbers of the first json based on its geometric similarity
     # save the new jsons into ./districts_reassigned
 
-    original_plan = gpd.read_file(f"./districts/az_pl2020_sldl_{1}_{0}.json")
+    original_plan = gpd.read_file(f"./districts/plan-{1}.json")
     original_plan = original_plan.to_crs(32030)
 
     """
@@ -47,7 +45,7 @@ def reassign(arg):
     procId = arg + 1
 
     for x in range(n):
-        new_plan = gpd.read_file(f"./districts/az_pl2020_sldl_{procId}_{x}.json")
+        new_plan = gpd.read_file(f"./districts/plan-{procId + x + procId-1}.json")
         new_plan = new_plan.to_crs(32030)
 
         print(f"For process {procId}, new_plan: {x}")
@@ -141,7 +139,7 @@ def reassign(arg):
 
         # save the new_plan into ./districts_reassigned
         new_plan.to_file(
-            f"./districts_reassigned/az_pl2020_sldl_{procId}_{x}.json",
+            f"./districts_reassigned/plan-{procId + x + procId-1}.json",
             driver="GeoJSON",
         )
 
@@ -156,15 +154,13 @@ def reassign(arg):
         )
 
         plt.axis("off")
-        plt.savefig(f"./plots_reassigned/az_pl2020_sldl_{procId}_{x}.png")
+        plt.savefig(f"./plots_reassigned/plan-{procId + x + procId-1}.png")
         plt.close()
-
-    end_time = datetime.now()
-
-    print("Duration: {}".format(end_time - start_time))
 
 
 def start():
+    start_time = datetime.now()
+
     NUM_PLANS = 20
 
     """
@@ -174,6 +170,12 @@ def start():
 
     with Pool(initializer=initWorker, processes=NUM_CORES) as pool:
         pool.map(reassign, range(NUM_CORES))
+        pool.close()
+        pool.join()
+
+    end_time = datetime.now()
+
+    print("Duration: {}".format(end_time - start_time))
 
 
 if __name__ == "__main__":

@@ -19,9 +19,9 @@ from random import random
 
 MAX_NUM_PLANS = 1000
 MAX_NUM_COMPARISON = MAX_NUM_PLANS * MAX_NUM_PLANS / 2
-NUM_PLANS = 100
+NUM_PLANS = 20
 NUM_COMPARISON = NUM_PLANS * NUM_PLANS / 2
-NUM_CORES = 4  # 16
+NUM_CORES = 10  # 16
 NUM_COMPARISON_PER_CORE = math.ceil(NUM_COMPARISON / NUM_CORES)
 
 
@@ -75,7 +75,7 @@ def makeCluster(arg):
     return distance_matrix
 
 
-if __name__ == "__main__":
+def start():
     makedirs("clusters", exist_ok=True)
 
     with Pool(initializer=initWorker, processes=NUM_CORES) as pool:
@@ -152,3 +152,9 @@ if __name__ == "__main__":
     plt.scatter(centers[:, 0], centers[:, 1], c="black", s=200, alpha=0.5)
     plt.savefig("./clusters/clusters.png")
     plt.close()
+
+    return y_kmeans
+
+
+if __name__ == "__main__":
+    start()
