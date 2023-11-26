@@ -28,8 +28,6 @@ REQUIRED FILES:
 1. azjson.json (aggregated precinct level census + election + district_plan shapefile)
 """
 
-start_time = datetime.now()
-
 # create directory named units, plots, districts, districts_reassigned, plots_reassigned if they don't exist
 makedirs("units", exist_ok=True)
 makedirs("plots", exist_ok=True)
@@ -37,8 +35,26 @@ makedirs("districts", exist_ok=True)
 makedirs("districts_reassigned", exist_ok=True)
 makedirs("plots_reassigned", exist_ok=True)
 
+NUM_CORES = 4
+
+
+def initWorker():
+    global NUM_PROJECTED_PLANS_PER_CORE
+    global NUM_CORES
+
+    NUM_PROJECTED_PLANS = 20
+    NUM_PROJECTED_PLANS_PER_CORE = math.ceil(NUM_PROJECTED_PLANS / NUM_CORES)
+
 
 def makeRandomPlansNoMaup(arg):
+    start_time = datetime.now()
+
+    STEP = 1000
+
+    n = NUM_PROJECTED_PLANS_PER_CORE
+
+    procId = arg + 1
+
     # load in the json
     units = gpd.read_file("azjson.json").to_crs(32030)
 
@@ -79,18 +95,21 @@ def makeRandomPlansNoMaup(arg):
         constraints=[pop_constraint, compactness_bound],
         accept=accept.always_accept,
         initial_state=initial_partition,
-        total_steps=10000,
+        total_steps=STEP * NUM_CORES * NUM_PROJECTED_PLANS_PER_CORE,
     )
 
-    i = 0
-    for partition in chain:
-        if i > 10000:
-            break
+    for x in range(n):
+        print("procId: ", procId, ", progress: ", x, "/", n)
 
-        i += 1
+        i = 0
 
-        if i % 1000 == 0:
-            print(i)
+        for partition in chain:
+            i += 1
+
+            # pick only the last plan
+            if i % STEP != 0:
+                continue
+
             # update unit's assignment
             units["SLDL_DIST"] = partition.assignment
 
@@ -98,11 +117,15 @@ def makeRandomPlansNoMaup(arg):
             units["geometry"] = units["geometry"].to_crs(4326)
 
             # save new units into json
-            units.to_file("./units/az_pl2020_vtd_" + str(i) + ".json", driver="GeoJSON")
+            units.to_file(
+                f"./units/az_pl2020_vtd_{procId}_{x}.json",
+                driver="GeoJSON",
+            )
 
             partition.plot(units, cmap="tab20")
             plt.axis("off")
-            plt.savefig("./plots/az_pl2020_vtd_" + str(i) + ".png")
+            plt.savefig(f"./plots/az_pl2020_vtd_{procId}_{x}.png")
+            plt.close()
 
             units_copy = units.copy()
 
@@ -130,7 +153,8 @@ def makeRandomPlansNoMaup(arg):
 
             # save the districts into a json
             districts.to_file(
-                "./districts/az_pl2020_sldl_" + str(i) + ".json", driver="GeoJSON"
+                f"./districts/az_pl2020_sldl_{procId}_{x}.json",
+                driver="GeoJSON",
             )
 
             # To see the plot, uncomment the following lines
@@ -143,23 +167,14 @@ def makeRandomPlansNoMaup(arg):
 
 
 def start():
-    NUM_PROJECTED_PLANS = 10000
-    # get number of cores
-
-    NUM_PLANS_PER_CORE = math.ceil(NUM_PROJECTED_PLANS / mp.cpu_count())
-
-    print("NUM_PLANS_PER_CORE:", NUM_PLANS_PER_CORE)
-
     """
     [1...NUM_CORES] folders be made in the units, plots, districts, districts_reassigned, plots_reassigned folders.
     Each folder will have NUM_PLANS_PER_CORE plans inside it.
     """
 
-    """
-    with Pool(processes=NUM_PLANS_PER_CORE) as pool:
-        pool.map(makeRandomPlansNoMaup, list(range(NUM_PLANS_PER_CORE)))
-    """
+    with Pool(initializer=initWorker, processes=NUM_CORES) as pool:
+        pool.map(makeRandomPlansNoMaup, range(NUM_CORES))
 
 
 if __name__ == "__main__":
-    pass
+    start()

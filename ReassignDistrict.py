@@ -14,150 +14,168 @@ import math
 
 warnings.filterwarnings("ignore")
 
-start_time = datetime.now()
-
 """
 REQUIRED FILES:
 1. 10 jsons in ./districts
 """
 
+NUM_CORES = 4
+
+
+def initWorker():
+    global NUM_PROJECTED_PLANS_PER_CORE
+    global NUM_CORES
+
+    NUM_PROJECTED_PLANS = 20
+    NUM_PROJECTED_PLANS_PER_CORE = math.ceil(NUM_PROJECTED_PLANS / NUM_CORES)
+
 
 def reassign(arg):
+    start_time = datetime.now()
+
     # open all the jsons in ./districts, and reassign district numbers (that means, update SLDL_DIST column) to match the district numbers of the first json based on its geometric similarity
     # save the new jsons into ./districts_reassigned
 
-    original_plan = gpd.read_file(f"./districts/az_pl2020_sldl_{1000}.json")
+    original_plan = gpd.read_file(f"./districts/az_pl2020_sldl_{1}_{0}.json")
     original_plan = original_plan.to_crs(32030)
 
     """
     for i in range(2000, 11000, 1000):
     """
-    new_plan = gpd.read_file("./districts/az_pl2020_sldl_" + str(arg) + ".json")
-    new_plan = new_plan.to_crs(32030)
 
-    print("For new plan", arg, ":")
+    n = NUM_PROJECTED_PLANS_PER_CORE
+    procId = arg + 1
 
-    # for each district in new_plan, find the district in original_plan that has the most similar geometry
-    matrix = np.zeros((len(new_plan), len(original_plan)))  # 30 x 30
+    for x in range(n):
+        new_plan = gpd.read_file(f"./districts/az_pl2020_sldl_{procId}_{x}.json")
+        new_plan = new_plan.to_crs(32030)
 
-    for district in new_plan["SLDL_DIST"].unique():
-        new_plan_district = new_plan.loc[new_plan["SLDL_DIST"] == district]
+        print(f"For process {procId}, new_plan: {x}")
 
-        # find intersection between the current district in new_plan and all the districts in original_plan
-        for original_district in original_plan["SLDL_DIST"].unique():
-            original_plan_district = original_plan.loc[
-                original_plan["SLDL_DIST"] == original_district
-            ]
+        # for each district in new_plan, find the district in original_plan that has the most similar geometry
+        matrix = np.zeros((len(new_plan), len(original_plan)))  # 30 x 30
 
-            # find the intersection between the two districts
-            intersection = gpd.overlay(
-                new_plan_district, original_plan_district, how="intersection"
-            )
+        for district in new_plan["SLDL_DIST"].unique():
+            new_plan_district = new_plan.loc[new_plan["SLDL_DIST"] == district]
 
-            # calculate the area difference between the two districts
-            area_difference = abs(
-                new_plan_district["geometry"].area.sum()
-                - original_plan_district["geometry"].area.sum()
-            )
+            # find intersection between the current district in new_plan and all the districts in original_plan
+            for original_district in original_plan["SLDL_DIST"].unique():
+                original_plan_district = original_plan.loc[
+                    original_plan["SLDL_DIST"] == original_district
+                ]
 
-            # calculate perimeter difference between the two districts
-            perimeter_difference = abs(
-                new_plan_district["geometry"].length.sum()
-                - original_plan_district["geometry"].length.sum()
-            )
+                # find the intersection between the two districts
+                intersection = gpd.overlay(
+                    new_plan_district, original_plan_district, how="intersection"
+                )
 
-            # calculate similarity based on those two factors
-            similarity = (
-                1e-5 * (intersection["geometry"].area.sum())
-                + 1e4 * (1 / area_difference)
-                + 1e4 * (1 / perimeter_difference)
-            )
+                # calculate the area difference between the two districts
+                area_difference = abs(
+                    new_plan_district["geometry"].area.sum()
+                    - original_plan_district["geometry"].area.sum()
+                )
 
-            # save the area into the matrix if it is not itself
-            if district != original_district:
-                matrix[int(district) - 1][int(original_district) - 1] = similarity
+                # calculate perimeter difference between the two districts
+                perimeter_difference = abs(
+                    new_plan_district["geometry"].length.sum()
+                    - original_plan_district["geometry"].length.sum()
+                )
 
-    # initialize NEW_SLDL_DIST column
-    new_plan["NEW_SLDL_DIST"] = 0
+                # calculate similarity based on those two factors
+                similarity = (
+                    1e-5 * (intersection["geometry"].area.sum())
+                    + 1e4 * (1 / area_difference)
+                    + 1e4 * (1 / perimeter_difference)
+                )
 
-    while np.any(matrix):
-        idx = unravel_index(matrix.argmax(), matrix.shape)
-        dist = matrix[idx[0], idx[1]]
+                # save the area into the matrix if it is not itself
+                if district != original_district:
+                    matrix[int(district) - 1][int(original_district) - 1] = similarity
 
-        # reassign new_plans idx[0]th district to original_plans idx[1]th district
-        # if NEW_SLDL_DIST already had that district, then skip
-        if (
-            new_plan.loc[
-                new_plan["SLDL_DIST"] == formatStr(idx[0] + 1), "NEW_SLDL_DIST"
-            ].values[0]
-            == 0
-        ):
-            new_plan.loc[
-                new_plan["SLDL_DIST"] == formatStr(idx[0] + 1), "NEW_SLDL_DIST"
-            ] = formatStr(idx[1] + 1)
+        # initialize NEW_SLDL_DIST column
+        new_plan["NEW_SLDL_DIST"] = 0
 
-        # also empty its swap location
-        matrix[:, idx[1]] = 0
-        matrix[idx[0], :] = 0
+        while np.any(matrix):
+            idx = unravel_index(matrix.argmax(), matrix.shape)
+            dist = matrix[idx[0], idx[1]]
 
-    # for all unassigned districts, just assign them whatever is left
-    for district in new_plan["SLDL_DIST"].unique():
-        if (
-            new_plan.loc[new_plan["SLDL_DIST"] == district, "NEW_SLDL_DIST"].values[0]
-            == 0
-        ):
-            new_plan.loc[new_plan["SLDL_DIST"] == district, "NEW_SLDL_DIST"] = district
+            # reassign new_plans idx[0]th district to original_plans idx[1]th district
+            # if NEW_SLDL_DIST already had that district, then skip
+            if (
+                new_plan.loc[
+                    new_plan["SLDL_DIST"] == formatStr(idx[0] + 1), "NEW_SLDL_DIST"
+                ].values[0]
+                == 0
+            ):
+                new_plan.loc[
+                    new_plan["SLDL_DIST"] == formatStr(idx[0] + 1), "NEW_SLDL_DIST"
+                ] = formatStr(idx[1] + 1)
 
-    # check if unique
-    print("unique:", new_plan["NEW_SLDL_DIST"])
-    print("unique:", new_plan["NEW_SLDL_DIST"].is_unique)
+            # also empty its swap location
+            matrix[:, idx[1]] = 0
+            matrix[idx[0], :] = 0
 
-    # drop the old SLDL_DIST column
-    new_plan = new_plan.drop(columns=["SLDL_DIST"])
+        # for all unassigned districts, just assign them whatever is left
+        for district in new_plan["SLDL_DIST"].unique():
+            if (
+                new_plan.loc[new_plan["SLDL_DIST"] == district, "NEW_SLDL_DIST"].values[
+                    0
+                ]
+                == 0
+            ):
+                new_plan.loc[
+                    new_plan["SLDL_DIST"] == district, "NEW_SLDL_DIST"
+                ] = district
 
-    # rename the NEW_SLDL_DIST column to SLDL_DIST
-    new_plan = new_plan.rename(columns={"NEW_SLDL_DIST": "SLDL_DIST"})
+        # check if unique
+        print("unique:", new_plan["NEW_SLDL_DIST"])
+        print("unique:", new_plan["NEW_SLDL_DIST"].is_unique)
 
-    # revert its crs back to 4326
-    new_plan["geometry"] = new_plan["geometry"].to_crs(4326)
+        # drop the old SLDL_DIST column
+        new_plan = new_plan.drop(columns=["SLDL_DIST"])
 
-    # save the new_plan into ./districts_reassigned
-    new_plan.to_file(
-        "./districts_reassigned/az_pl2020_sldl_" + str(arg) + ".json",
-        driver="GeoJSON",
-    )
+        # rename the NEW_SLDL_DIST column to SLDL_DIST
+        new_plan = new_plan.rename(columns={"NEW_SLDL_DIST": "SLDL_DIST"})
 
-    # also save its plot
-    ax = new_plan.plot(column="SLDL_DIST", cmap="tab20")
+        # revert its crs back to 4326
+        new_plan["geometry"] = new_plan["geometry"].to_crs(4326)
 
-    new_plan.apply(
-        lambda x: ax.annotate(
-            text=x["SLDL_DIST"], xy=x.geometry.centroid.coords[0], ha="center"
-        ),
-        axis=1,
-    )
+        # save the new_plan into ./districts_reassigned
+        new_plan.to_file(
+            f"./districts_reassigned/az_pl2020_sldl_{procId}_{x}.json",
+            driver="GeoJSON",
+        )
 
-    plt.axis("off")
-    plt.savefig("./plots_reassigned/az_pl2020_sldl_" + str(arg) + ".png")
+        # also save its plot
+        ax = new_plan.plot(column="SLDL_DIST", cmap="tab20")
+
+        new_plan.apply(
+            lambda x: ax.annotate(
+                text=x["SLDL_DIST"], xy=x.geometry.centroid.coords[0], ha="center"
+            ),
+            axis=1,
+        )
+
+        plt.axis("off")
+        plt.savefig(f"./plots_reassigned/az_pl2020_sldl_{procId}_{x}.png")
+        plt.close()
+
+    end_time = datetime.now()
+
+    print("Duration: {}".format(end_time - start_time))
 
 
-end_time = datetime.now()
-
-print("Duration: {}".format(end_time - start_time))
-
-
-if __name__ == "__main__":
-    NUM_PROJECTED_PLANS = 10000
-    # get number of cores
-
-    NUM_PLANS_PER_CORE = math.ceil(NUM_PROJECTED_PLANS / mp.cpu_count())
-
-    print("NUM_PLANS_PER_CORE:", NUM_PLANS_PER_CORE)
+def start():
+    NUM_PLANS = 20
 
     """
     [1...NUM_CORES] folders be made in the units, plots, districts, districts_reassigned, plots_reassigned folders.
     Each folder will have NUM_PLANS_PER_CORE plans inside it.
     """
 
-    with Pool(processes=9) as pool:
-        pool.map(reassign, [x for x in range(2000, 11000, 1000)])
+    with Pool(initializer=initWorker, processes=NUM_CORES) as pool:
+        pool.map(reassign, range(NUM_CORES))
+
+
+if __name__ == "__main__":
+    start()

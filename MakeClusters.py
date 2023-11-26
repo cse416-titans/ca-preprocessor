@@ -1,17 +1,5 @@
 from OptimalTransport import Pair
 import matplotlib.pyplot as plt
-from gerrychain import (
-    GeographicPartition,
-    Partition,
-    Graph,
-    MarkovChain,
-    proposals,
-    updaters,
-    constraints,
-    accept,
-    Election,
-    graph,
-)
 import pandas as pd
 import geopandas as gpd
 import numpy as np
@@ -123,10 +111,12 @@ if __name__ == "__main__":
     # using pos, run k-means clustering with elbow method to find optimal number of clusters
     distortions = []
     K = range(1, NUM_PLANS)
+
     for k in K:
         kmeanModel = KMeans(n_clusters=k)
         kmeanModel.fit(pos)
         distortions.append(kmeanModel.inertia_)
+
     plt.figure(figsize=(16, 8))
     plt.plot(K, distortions, "bx-")
     plt.xlabel("k")
