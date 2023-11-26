@@ -19,7 +19,7 @@ REQUIRED FILES:
 1. 10 jsons in ./districts
 """
 
-NUM_CORES = 4
+NUM_CORES = 10
 
 
 def initWorker():
@@ -88,9 +88,8 @@ def reassign(arg):
                     + 1e4 * (1 / perimeter_difference)
                 )
 
-                # save the area into the matrix if it is not itself
-                if district != original_district:
-                    matrix[int(district) - 1][int(original_district) - 1] = similarity
+                # save the area into the matrix
+                matrix[int(district) - 1][int(original_district) - 1] = similarity
 
         # initialize NEW_SLDL_DIST column
         new_plan["NEW_SLDL_DIST"] = 0
