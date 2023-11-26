@@ -13,6 +13,8 @@ from gerrychain import (
     Election,
 )
 
+import maup
+
 from gerrychain.proposals import recom
 from functools import partial
 from polygonUtil import close_holes
@@ -23,31 +25,28 @@ import multiprocessing as mp
 from multiprocessing import Pool, Manager
 import math
 
-import maup
-
-"""
-Use this script when you want to run ReCom with disagggregated precinct level data.
-"""
-
 """
 REQUIRED FILES:
 1. azjson.json (aggregated precinct level census + election + district_plan shapefile)
 """
 
-NUM_CORES = 10
+# default values
+NUM_CORES = 0
+NUM_PROJECTED_PLANS = 0
 
 
-def initWorker(state):
+def initWorker(state, num_cores, num_plans):
     global NUM_PROJECTED_PLANS_PER_CORE
+    global NUM_PROJECTED_PLANS
     global NUM_CORES
     global arr
     global units
 
     global stateAbbr
-
     stateAbbr = state
 
-    NUM_PROJECTED_PLANS = 20
+    NUM_CORES = num_cores
+    NUM_PROJECTED_PLANS = num_plans
     NUM_PROJECTED_PLANS_PER_CORE = math.ceil(NUM_PROJECTED_PLANS / NUM_CORES)
 
     STEP = 1000
@@ -134,15 +133,15 @@ def initWorker(state):
 
 
 def makeRandomPlansNoMaup(id, lock):
-    start_time = datetime.now()
-
     for x in range(NUM_PROJECTED_PLANS_PER_CORE):
         procId = id + 1
+
+        fileId = (x + 1) + (procId - 1) * NUM_PROJECTED_PLANS_PER_CORE
 
         lock.acquire()
 
         print(
-            "\nprocId: ", procId, ", progress: ", x, "/", NUM_PROJECTED_PLANS_PER_CORE
+            f"For process {procId}/{NUM_CORES}, plan: {x}/{NUM_PROJECTED_PLANS_PER_CORE}"
         )
 
         partition = arr[x + (procId - 1) * NUM_PROJECTED_PLANS_PER_CORE]
@@ -155,13 +154,13 @@ def makeRandomPlansNoMaup(id, lock):
 
         # save new units into json
         units.to_file(
-            f"./{stateAbbr}/units/plan-{procId + x + procId-1}.json",
+            f"./{stateAbbr}/units/plan-{fileId}.json",
             driver="GeoJSON",
         )
 
         partition.plot(units, cmap="tab20")
         plt.axis("off")
-        plt.savefig(f"./{stateAbbr}/plots/plan-{procId + x + procId-1}.png")
+        plt.savefig(f"./{stateAbbr}/plots/plan-{fileId}.png")
         plt.close()
 
         units_copy = units.copy()
@@ -188,7 +187,7 @@ def makeRandomPlansNoMaup(id, lock):
 
         # save the districts into a json
         districts.to_file(
-            f"./{stateAbbr}/districts/plan-{procId + x + procId-1}.json",
+            f"./{stateAbbr}/districts/plan-{fileId}.json",
             driver="GeoJSON",
         )
 
@@ -198,12 +197,8 @@ def makeRandomPlansNoMaup(id, lock):
 
         lock.release()
 
-    end_time = datetime.now()
 
-    print("Duration: ", end_time - start_time)
-
-
-def start(state):
+def start(state, num_cores, num_plans):
     """
     [1...NUM_CORES] folders be made in the units, plots, districts, districts_reassigned, plots_reassigned folders.
     Each folder will have NUM_PLANS_PER_CORE plans inside it.
@@ -216,16 +211,25 @@ def start(state):
     makedirs(f"{state}/districts_reassigned", exist_ok=True)
     makedirs(f"{state}/plots_reassigned", exist_ok=True)
 
+    start_time = datetime.now()
+
     m = Manager()
     l = m.Lock()
 
     func = partial(makeRandomPlansNoMaup, lock=l)
 
-    with Pool(initializer=initWorker, initargs=(state,), processes=NUM_CORES) as pool:
-        result = pool.map(func, range(NUM_CORES))
+    with Pool(
+        initializer=initWorker,
+        initargs=(state, num_cores, num_plans),
+        processes=num_cores,
+    ) as pool:
+        result = pool.map(func, range(num_cores))
+        pool.close()
+        pool.join()
 
-    pool.close()
-    pool.join()
+    end_time = datetime.now()
+
+    print("Duration: ", end_time - start_time)
 
 
 if __name__ == "__main__":

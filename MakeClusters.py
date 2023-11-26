@@ -1,10 +1,7 @@
 import MakeOptimalTransportClusters
-from os import makedirs
-import sys
 
-if __name__ == "__main__":
-    state = sys.argv[1]
 
+def start(state, num_cores, num_plans):
     # Configure directories
     if not state in ["AZ", "LA", "NV"]:
         print("Invalid state.")
@@ -18,12 +15,12 @@ if __name__ == "__main__":
 
     # Generate random plans
     if state == "AZ":
-        MakeOptimalTransportClusters.start(state, 0)
+        MakeOptimalTransportClusters.start(state, 0, num_cores, num_plans)
         # MakeHammingClusters.start(state, 1)
         # MakeEntropyClusters.start(state, 2)
     elif state == "LA":
-        MakeOptimalTransportClusters.start(state, 0)
+        MakeOptimalTransportClusters.start(state, 0, num_cores, num_plans)
     elif state == "NV":
-        MakeOptimalTransportClusters.start(state, 0)
+        MakeOptimalTransportClusters.start(state, 0, num_cores, num_plans)
     else:
         print("Invalid state.")

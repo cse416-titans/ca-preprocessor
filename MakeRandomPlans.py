@@ -1,32 +1,18 @@
 import ReComMaup
 import ReComNoMaup
-import ReassignDistrict
-from os import makedirs
-import sys
 
-if __name__ == "__main__":
-    state = sys.argv[1]
 
-    # Configure directories
-    if state in ["AZ", "LA", "NV"]:
-        makedirs(f"{state}", exist_ok=True)
-
+def start(state, num_cores, num_plans):
     # Generate random plans
     if state == "AZ":
-        ReComNoMaup.start(state)
+        ReComNoMaup.start(state, num_cores, num_plans)
     elif state == "LA":
-        ReComNoMaup.start(state)
+        ReComNoMaup.start(state, num_cores, num_plans)
     elif state == "NV":
-        ReComMaup.start(state)
+        ReComMaup.start(state, num_cores, num_plans)
     else:
         print("Invalid state.")
 
     """
     TODO: Rename files in order
     """
-
-    # Reassign districts
-    if state in ["AZ", "LA", "NV"]:
-        ReassignDistrict.start(state)
-
-    pass

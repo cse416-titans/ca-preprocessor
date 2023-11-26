@@ -19,10 +19,11 @@ REQUIRED FILES:
 1. 10 jsons in ./districts
 """
 
-NUM_CORES = 10
+NUM_CORES = 0
+NUM_PROJECTED_PLANS = 0
 
 
-def initWorker(state):
+def initWorker(state, num_cores, num_plans):
     global NUM_PROJECTED_PLANS_PER_CORE
     global NUM_CORES
 
@@ -30,7 +31,8 @@ def initWorker(state):
 
     stateAbbr = state
 
-    NUM_PROJECTED_PLANS = 20
+    NUM_CORES = num_cores
+    NUM_PROJECTED_PLANS = num_plans
     NUM_PROJECTED_PLANS_PER_CORE = math.ceil(NUM_PROJECTED_PLANS / NUM_CORES)
 
 
@@ -49,9 +51,9 @@ def reassign(arg):
     procId = arg + 1
 
     for x in range(n):
-        new_plan = gpd.read_file(
-            f"./{stateAbbr}/districts/plan-{procId + x + procId-1}.json"
-        )
+        fileId = (x + 1) + (procId - 1) * n
+
+        new_plan = gpd.read_file(f"./{stateAbbr}/districts/plan-{fileId}.json")
         new_plan = new_plan.to_crs(32030)
 
         print(f"For process {procId}, new_plan: {x}")
@@ -145,7 +147,7 @@ def reassign(arg):
 
         # save the new_plan into ./districts_reassigned
         new_plan.to_file(
-            f"./{stateAbbr}/districts_reassigned/plan-{procId + x + procId-1}.json",
+            f"./{stateAbbr}/districts_reassigned/plan-{fileId}.json",
             driver="GeoJSON",
         )
 
@@ -160,11 +162,11 @@ def reassign(arg):
         )
 
         plt.axis("off")
-        plt.savefig(f"./{stateAbbr}/plots_reassigned/plan-{procId + x + procId-1}.png")
+        plt.savefig(f"./{stateAbbr}/plots_reassigned/plan-{fileId}.png")
         plt.close()
 
 
-def start(state):
+def start(state, num_cores, num_plans):
     start_time = datetime.now()
 
     NUM_PLANS = 20
@@ -174,8 +176,12 @@ def start(state):
     Each folder will have NUM_PLANS_PER_CORE plans inside it.
     """
 
-    with Pool(initializer=initWorker, initargs=(state,), processes=NUM_CORES) as pool:
-        pool.map(reassign, range(NUM_CORES))
+    with Pool(
+        initializer=initWorker,
+        initargs=(state, num_cores, num_plans),
+        processes=num_cores,
+    ) as pool:
+        pool.map(reassign, range(num_cores))
         pool.close()
         pool.join()
 
