@@ -28,21 +28,18 @@ REQUIRED FILES:
 1. azjson.json (aggregated precinct level census + election + district_plan shapefile)
 """
 
-# create directory named units, plots, districts, districts_reassigned, plots_reassigned if they don't exist
-makedirs("units", exist_ok=True)
-makedirs("plots", exist_ok=True)
-makedirs("districts", exist_ok=True)
-makedirs("districts_reassigned", exist_ok=True)
-makedirs("plots_reassigned", exist_ok=True)
-
 NUM_CORES = 10
 
 
-def initWorker():
+def initWorker(state):
     global NUM_PROJECTED_PLANS_PER_CORE
     global NUM_CORES
     global arr
     global units
+
+    global stateAbbr
+
+    stateAbbr = state
 
     NUM_PROJECTED_PLANS = 20
     NUM_PROJECTED_PLANS_PER_CORE = math.ceil(NUM_PROJECTED_PLANS / NUM_CORES)
@@ -125,13 +122,13 @@ def makeRandomPlansNoMaup(id, lock):
 
         # save new units into json
         units.to_file(
-            f"./units/plan-{procId + x + procId-1}.json",
+            f"stateAbbr/units/plan-{procId + x + procId-1}.json",
             driver="GeoJSON",
         )
 
         partition.plot(units, cmap="tab20")
         plt.axis("off")
-        plt.savefig(f"./plots/plan-{procId + x + procId-1}.png")
+        plt.savefig(f"stateAbbr/plots/plan-{procId + x + procId-1}.png")
         plt.close()
 
         units_copy = units.copy()
@@ -158,7 +155,7 @@ def makeRandomPlansNoMaup(id, lock):
 
         # save the districts into a json
         districts.to_file(
-            f"./districts/plan-{procId + x + procId-1}.json",
+            f"stateAbbr/districts/plan-{procId + x + procId-1}.json",
             driver="GeoJSON",
         )
 
@@ -169,11 +166,18 @@ def makeRandomPlansNoMaup(id, lock):
         lock.release()
 
 
-def start():
+def start(state):
     """
     [1...NUM_CORES] folders be made in the units, plots, districts, districts_reassigned, plots_reassigned folders.
     Each folder will have NUM_PLANS_PER_CORE plans inside it.
     """
+
+    # create directory named units, plots, districts, districts_reassigned, plots_reassigned if they don't exist
+    makedirs(f"{state}/units", exist_ok=True)
+    makedirs(f"{state}/plots", exist_ok=True)
+    makedirs(f"{state}/districts", exist_ok=True)
+    makedirs(f"{state}/districts_reassigned", exist_ok=True)
+    makedirs(f"{state}/plots_reassigned", exist_ok=True)
 
     start_time = datetime.now()
 
@@ -182,7 +186,7 @@ def start():
 
     func = partial(makeRandomPlansNoMaup, lock=l)
 
-    with Pool(initializer=initWorker, processes=NUM_CORES) as pool:
+    with Pool(initializer=initWorker, initargs=(state,), processes=NUM_CORES) as pool:
         result = pool.map(func, range(NUM_CORES))
         pool.close()
         pool.join()
@@ -193,4 +197,4 @@ def start():
 
 
 if __name__ == "__main__":
-    start()
+    pass

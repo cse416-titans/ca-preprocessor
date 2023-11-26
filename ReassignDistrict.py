@@ -22,9 +22,13 @@ REQUIRED FILES:
 NUM_CORES = 10
 
 
-def initWorker():
+def initWorker(state):
     global NUM_PROJECTED_PLANS_PER_CORE
     global NUM_CORES
+
+    global stateAbbr
+
+    stateAbbr = state
 
     NUM_PROJECTED_PLANS = 20
     NUM_PROJECTED_PLANS_PER_CORE = math.ceil(NUM_PROJECTED_PLANS / NUM_CORES)
@@ -45,7 +49,9 @@ def reassign(arg):
     procId = arg + 1
 
     for x in range(n):
-        new_plan = gpd.read_file(f"./districts/plan-{procId + x + procId-1}.json")
+        new_plan = gpd.read_file(
+            f"{stateAbbr}/districts/plan-{procId + x + procId-1}.json"
+        )
         new_plan = new_plan.to_crs(32030)
 
         print(f"For process {procId}, new_plan: {x}")
@@ -139,7 +145,7 @@ def reassign(arg):
 
         # save the new_plan into ./districts_reassigned
         new_plan.to_file(
-            f"./districts_reassigned/plan-{procId + x + procId-1}.json",
+            f"{stateAbbr}/districts_reassigned/plan-{procId + x + procId-1}.json",
             driver="GeoJSON",
         )
 
@@ -154,11 +160,11 @@ def reassign(arg):
         )
 
         plt.axis("off")
-        plt.savefig(f"./plots_reassigned/plan-{procId + x + procId-1}.png")
+        plt.savefig(f"{stateAbbr}/plots_reassigned/plan-{procId + x + procId-1}.png")
         plt.close()
 
 
-def start():
+def start(state):
     start_time = datetime.now()
 
     NUM_PLANS = 20
@@ -168,7 +174,7 @@ def start():
     Each folder will have NUM_PLANS_PER_CORE plans inside it.
     """
 
-    with Pool(initializer=initWorker, processes=NUM_CORES) as pool:
+    with Pool(initializer=initWorker, initargs=(state,), processes=NUM_CORES) as pool:
         pool.map(reassign, range(NUM_CORES))
         pool.close()
         pool.join()

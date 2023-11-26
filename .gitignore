@@ -9,3 +9,7 @@
 # ignore json
 *.json
 *.zip
+
+/AZ
+/LA
+/NV
