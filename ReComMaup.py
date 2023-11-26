@@ -1,4 +1,3 @@
-import maup
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -13,6 +12,7 @@ from gerrychain import (
     accept,
     Election,
 )
+
 from gerrychain.proposals import recom
 from functools import partial
 from polygonUtil import close_holes
@@ -20,21 +20,19 @@ from polygonUtil import close_holes
 from datetime import datetime
 from os import makedirs
 import multiprocessing as mp
-from multiprocessing import Pool
+from multiprocessing import Pool, Manager
 import math
 
+import maup
+
 """
-When there are no fully aggregated precinct level shapefile (election + demography + district plan), use this script to generate random plans.
+Use this script when you want to run ReCom with disagggregated precinct level data.
 """
 
 """
 REQUIRED FILES:
-1. az_pl2020_vtd.zip (vtd level census shapefile)
-2. az_sl_adopted_2022.zip (district plan shapefile)
-3. az_prim_20_prec.zip (precinct level election shapefile)
+1. azjson.json (aggregated precinct level census + election + district_plan shapefile)
 """
-
-start_time = datetime.now()
 
 # create directory named units, plots, districts, districts_reassigned, plots_reassigned if they don't exist
 makedirs("units", exist_ok=True)
@@ -43,18 +41,18 @@ makedirs("districts", exist_ok=True)
 makedirs("districts_reassigned", exist_ok=True)
 makedirs("plots_reassigned", exist_ok=True)
 
-NUM_CORES = 4
+NUM_CORES = 10
 
 
 def initWorker():
     global NUM_PROJECTED_PLANS_PER_CORE
     global NUM_CORES
+    global arr
+    global units
 
     NUM_PROJECTED_PLANS = 20
     NUM_PROJECTED_PLANS_PER_CORE = math.ceil(NUM_PROJECTED_PLANS / NUM_CORES)
 
-
-def makeRandomPlansMaup(arg):
     STEP = 1000
 
     # load in the vtd and district shapefiles
@@ -96,7 +94,7 @@ def makeRandomPlansMaup(arg):
     graph = Graph.from_geodataframe(units)
 
     initial_partition = GeographicPartition(
-        graph, assignment="SLDIST", updaters=my_updaters
+        graph, assignment="SLDL_DIST", updaters=my_updaters
     )
 
     ideal_population = sum(initial_partition["population"].values()) / len(
@@ -105,7 +103,7 @@ def makeRandomPlansMaup(arg):
 
     proposal = partial(
         recom,
-        pop_col="POP100",
+        pop_col="Total_Population",
         pop_target=ideal_population,
         epsilon=0.1,
         node_repeats=2,
@@ -124,70 +122,84 @@ def makeRandomPlansMaup(arg):
         constraints=[pop_constraint, compactness_bound],
         accept=accept.always_accept,
         initial_state=initial_partition,
-        total_steps=1000,
+        total_steps=STEP * NUM_CORES * NUM_PROJECTED_PLANS_PER_CORE,
     )
 
+    # save only every 1000th partition in the chain into an array
+    arr = []
     i = 0
-    n = NUM_PROJECTED_PLANS_PER_CORE
+    for partition in chain.with_progress_bar():
+        i += 1
+        # pick only the last plan
+        if i % STEP != 0:
+            continue
+        arr.append(partition)
 
-    procId = arg + 1
 
-    for x in range(n):
-        print("procId: ", procId, ", progress: ", x, "/", n)
+def makeRandomPlansNoMaup(id, lock):
+    start_time = datetime.now()
 
-        for partition in chain:
-            i += 1
+    for x in range(NUM_PROJECTED_PLANS_PER_CORE):
+        procId = id + 1
 
-            # pick only the 10000th plan
-            if i < STEP:
-                continue
+        lock.acquire()
 
-            # update unit's assignment
-            units["SLDL_DIST"] = partition.assignment
+        print(
+            "\nprocId: ", procId, ", progress: ", x, "/", NUM_PROJECTED_PLANS_PER_CORE
+        )
 
-            # convert unit's coordinates to lat/lon
-            units["geometry"] = units["geometry"].to_crs(4326)
+        partition = arr[x + (procId - 1) * NUM_PROJECTED_PLANS_PER_CORE]
 
-            # save new units into json
-            units.to_file("./units/az_pl2020_vtd_" + str(x) + ".json", driver="GeoJSON")
+        # update unit's assignment
+        units["SLDL_DIST"] = partition.assignment
 
-            partition.plot(units, cmap="tab20")
-            plt.axis("off")
-            plt.savefig("./plots/az_pl2020_vtd_" + str(x) + ".png")
-            plt.close()
+        # convert unit's coordinates to lat/lon
+        units["geometry"] = units["geometry"].to_crs(4326)
 
-            units_copy = units.copy()
+        # save new units into json
+        units.to_file(
+            f"./units/az_pl2020_vtd_{procId}_{x}.json",
+            driver="GeoJSON",
+        )
 
-            # create a new dataframe which aggregates the units to the district level and for its geometry, takes the union of the unit geometries
-            districts = units_copy.dissolve(by="SLDL_DIST", aggfunc="sum")
+        partition.plot(units, cmap="tab20")
+        plt.axis("off")
+        plt.savefig(f"./plots/az_pl2020_vtd_{procId}_{x}.png")
+        plt.close()
 
-            # drop PCTNUM and PRECINCTNA column
-            districts = districts.drop(columns=["PCTNUM", "PRECINCTNA"])
+        units_copy = units.copy()
 
-            # avoid self-intersection
-            districts["geometry"] = districts["geometry"].buffer(0)
+        # create a new dataframe which aggregates the units to the district level and for its geometry, takes the union of the unit geometries
+        districts = units_copy.dissolve(by="SLDL_DIST", aggfunc="sum")
 
-            # make geometry smooth
-            districts["geometry"] = districts["geometry"].simplify(
-                0.0001, preserve_topology=True
-            )
+        # drop PCTNUM and PRECINCTNA column
+        districts = districts.drop(columns=["PCTNUM", "PRECINCTNA"])
 
-            # fill in any holes in the geometry
-            districts["geometry"] = districts["geometry"].apply(
-                lambda p: close_holes(p)
-            )
+        # avoid self-intersection
+        districts["geometry"] = districts["geometry"].buffer(0)
 
-            # print if the polygon is valid
-            # print(districts["geometry"].is_valid)
+        # make geometry smooth
+        districts["geometry"] = districts["geometry"].simplify(
+            0.0001, preserve_topology=True
+        )
 
-            # save the districts into a json
-            districts.to_file(
-                "./districts/az_pl2020_sldl_" + str(x) + ".json", driver="GeoJSON"
-            )
+        # fill in any holes in the geometry
+        districts["geometry"] = districts["geometry"].apply(lambda p: close_holes(p))
 
-            # To see the plot, uncomment the following lines
-            # plt.axis("off")
-            # plt.show()
+        # print if the polygon is valid
+        # print(districts["geometry"].is_valid)
+
+        # save the districts into a json
+        districts.to_file(
+            f"./districts/az_pl2020_sldl_{procId}_{x}.json",
+            driver="GeoJSON",
+        )
+
+        # To see the plot, uncomment the following lines
+        # plt.axis("off")
+        # plt.show()
+
+        lock.release()
 
     end_time = datetime.now()
 
@@ -200,8 +212,16 @@ def start():
     Each folder will have NUM_PLANS_PER_CORE plans inside it.
     """
 
+    m = Manager()
+    l = m.Lock()
+
+    func = partial(makeRandomPlansNoMaup, lock=l)
+
     with Pool(initializer=initWorker, processes=NUM_CORES) as pool:
-        pool.map(makeRandomPlansMaup, range(NUM_CORES))
+        result = pool.map(func, range(NUM_CORES))
+
+    pool.close()
+    pool.join()
 
 
 if __name__ == "__main__":
