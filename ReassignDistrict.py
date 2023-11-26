@@ -38,7 +38,7 @@ def reassign(arg):
     # open all the jsons in ./districts, and reassign district numbers (that means, update SLDL_DIST column) to match the district numbers of the first json based on its geometric similarity
     # save the new jsons into ./districts_reassigned
 
-    original_plan = gpd.read_file(f"./districts/plan-{1}.json")
+    original_plan = gpd.read_file(f"./{stateAbbr}/districts/plan-{1}.json")
     original_plan = original_plan.to_crs(32030)
 
     """
@@ -50,7 +50,7 @@ def reassign(arg):
 
     for x in range(n):
         new_plan = gpd.read_file(
-            f"{stateAbbr}/districts/plan-{procId + x + procId-1}.json"
+            f"./{stateAbbr}/districts/plan-{procId + x + procId-1}.json"
         )
         new_plan = new_plan.to_crs(32030)
 
@@ -145,7 +145,7 @@ def reassign(arg):
 
         # save the new_plan into ./districts_reassigned
         new_plan.to_file(
-            f"{stateAbbr}/districts_reassigned/plan-{procId + x + procId-1}.json",
+            f"./{stateAbbr}/districts_reassigned/plan-{procId + x + procId-1}.json",
             driver="GeoJSON",
         )
 
@@ -160,7 +160,7 @@ def reassign(arg):
         )
 
         plt.axis("off")
-        plt.savefig(f"{stateAbbr}/plots_reassigned/plan-{procId + x + procId-1}.png")
+        plt.savefig(f"./{stateAbbr}/plots_reassigned/plan-{procId + x + procId-1}.png")
         plt.close()
 
 

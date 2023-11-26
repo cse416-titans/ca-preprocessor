@@ -21,6 +21,10 @@ if __name__ == "__main__":
     else:
         print("Invalid state.")
 
+    """
+    TODO: Rename files in order
+    """
+
     # Reassign districts
     if state in ["AZ", "LA", "NV"]:
         ReassignDistrict.start(state)

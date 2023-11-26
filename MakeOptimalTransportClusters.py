@@ -75,8 +75,8 @@ def makeCluster(arg):
     return distance_matrix
 
 
-def start():
-    makedirs("clusters", exist_ok=True)
+def start(state, id):
+    makedirs(f"./{state}/clusterSet-{0}", exist_ok=True)
 
     with Pool(initializer=initWorker, processes=NUM_CORES) as pool:
         res = pool.map(makeCluster, range(NUM_CORES))
@@ -122,7 +122,7 @@ def start():
     plt.xlabel("k")
     plt.ylabel("Distortion")
     plt.title("The Elbow Method showing the optimal k")
-    plt.savefig("./clusters/elbow.png")
+    plt.savefig(f"./{state}/clusterSet-{id}/elbowPlot.png")
     plt.close()
 
     print("distortions:", distortions)
@@ -150,11 +150,25 @@ def start():
     plt.scatter(pos[:, 0], pos[:, 1], c=y_kmeans, s=50, cmap="viridis")
     centers = kmeans.cluster_centers_
     plt.scatter(centers[:, 0], centers[:, 1], c="black", s=200, alpha=0.5)
-    plt.savefig("./clusters/clusters.png")
+    plt.savefig(f"./{state}/clusterSet-{id}/clusterPlot.png")
     plt.close()
+
+    # for all plans in district_reassigned folder, move them into their respective cluster folders. For example, if plan-1.json is in cluster 0, move it to clusterSet-0/cluster-0/plan-1.json
+    for i in range(NUM_PLANS):
+        plan = gpd.read_file(f"./{state}/districts_reassigned/plan-{i+1}.json")
+        plan = plan.to_crs(32030)
+
+        # create cluster folders
+        makedirs(f"./{state}/clusterSet-{id}/cluster-{y_kmeans[i]}", exist_ok=True)
+
+        # save plan into its respective cluster folder
+        plan.to_file(
+            f"./{state}/clusterSet-{id}/cluster-{y_kmeans[i]}/plan-{i+1}.json",
+            driver="GeoJSON",
+        )
 
     return y_kmeans
 
 
 if __name__ == "__main__":
-    start()
+    start("AZ", 0)

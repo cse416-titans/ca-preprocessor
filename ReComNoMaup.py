@@ -38,7 +38,6 @@ def initWorker(state):
     global units
 
     global stateAbbr
-
     stateAbbr = state
 
     NUM_PROJECTED_PLANS = 20
@@ -122,13 +121,13 @@ def makeRandomPlansNoMaup(id, lock):
 
         # save new units into json
         units.to_file(
-            f"stateAbbr/units/plan-{procId + x + procId-1}.json",
+            f"./{stateAbbr}/units/plan-{procId + x + procId-1}.json",
             driver="GeoJSON",
         )
 
         partition.plot(units, cmap="tab20")
         plt.axis("off")
-        plt.savefig(f"stateAbbr/plots/plan-{procId + x + procId-1}.png")
+        plt.savefig(f"./{stateAbbr}/plots/plan-{procId + x + procId-1}.png")
         plt.close()
 
         units_copy = units.copy()
@@ -155,7 +154,7 @@ def makeRandomPlansNoMaup(id, lock):
 
         # save the districts into a json
         districts.to_file(
-            f"stateAbbr/districts/plan-{procId + x + procId-1}.json",
+            f"./{stateAbbr}/districts/plan-{procId + x + procId-1}.json",
             driver="GeoJSON",
         )
 
