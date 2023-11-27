@@ -158,6 +158,9 @@ def makeRandomPlansNoMaup(id, lock):
         # print if the polygon is valid
         # print(districts["geometry"].is_valid)
 
+        # convert to crs 4326
+        districts["geometry"] = districts["geometry"].to_crs(4326)
+
         # save the districts into a json
         districts.to_file(
             f"./{stateAbbr}/districts/plan-{fileId}.json",

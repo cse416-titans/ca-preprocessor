@@ -174,7 +174,6 @@ def start(state, id, num_cores, num_plans):
     # for all plans in district_reassigned folder, move them into their respective cluster folders. For example, if plan-1.json is in cluster 0, move it to clusterSet-0/cluster-0/plan-1.json
     for i in range(num_plans):
         plan = gpd.read_file(f"./{state}/districts_reassigned/plan-{i+1}.json")
-        plan = plan.to_crs(32030)
 
         # create cluster folders
         makedirs(f"./{state}/clusterSet-{id+1}/cluster-{y_kmeans[i]+1}", exist_ok=True)
