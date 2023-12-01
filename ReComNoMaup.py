@@ -55,7 +55,7 @@ def initWorker(state, num_cores, num_plans):
     units = gpd.read_file("azjson.json").to_crs(32030)
 
     # configure updaters for the recom chain
-    elections = [Election("PRED20", {"Dem": "G20PREDBID", "Rep": "G20PRERTRU"})]
+    elections = [Election("PRED20", {"Dem": "Democratic", "Rep": "Republic"})]
     my_updaters = {"population": updaters.Tally("Total_Population", alias="population")}
     election_updaters = {election.name: election for election in elections}
     my_updaters.update(election_updaters)
@@ -142,7 +142,7 @@ def makeRandomPlansNoMaup(id, lock):
         districts = units_copy.dissolve(by="SLDL_DIST", aggfunc="sum")
 
         # drop PCTNUM and PRECINCTNA column
-        districts = districts.drop(columns=["PCTNUM", "PRECINCTNA"])
+        districts = districts.drop(columns=["PCTNUM", "NAME"])
 
         # avoid self-intersection
         districts["geometry"] = districts["geometry"].buffer(0)
@@ -186,6 +186,7 @@ def start(state, num_cores, num_plans):
     makedirs(f"{state}/districts", exist_ok=True)
     makedirs(f"{state}/districts_reassigned", exist_ok=True)
     makedirs(f"{state}/plots_reassigned", exist_ok=True)
+    makedirs(f"{state}/district_list", exist_ok=True)
 
     start_time = datetime.now()
 
