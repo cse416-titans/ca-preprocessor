@@ -137,7 +137,7 @@ def reassign(arg):
         print("unique:", new_plan["NEW_SLDL_DIST"].is_unique)
 
         # save changed dist list for calculate hamming distance
-        distlist = new_plan["SLDL_DIST", "NEW_SLDL_DIST"]
+        distlist = new_plan[["SLDL_DIST", "NEW_SLDL_DIST"]]
         distlist.to_csv(f"./{stateAbbr}/district_list/district_list-{fileId}.csv")
 
         # drop the old SLDL_DIST column
