@@ -136,6 +136,10 @@ def reassign(arg):
         print("unique:", new_plan["NEW_SLDL_DIST"])
         print("unique:", new_plan["NEW_SLDL_DIST"].is_unique)
 
+        # save changed dist list for calculate hamming distance
+        distlist = new_plan["SLDL_DIST, NEW_SLDL_DIST"]
+        distlist.to_csv(f"./{stateAbbr}/district_list/district_list-{fileId}.csv")
+
         # drop the old SLDL_DIST column
         new_plan = new_plan.drop(columns=["SLDL_DIST"])
 
@@ -144,7 +148,7 @@ def reassign(arg):
 
         # revert its crs back to 4326
         new_plan["geometry"] = new_plan["geometry"].to_crs(4326)
-
+        
         # save the new_plan into ./districts_reassigned
         new_plan.to_file(
             f"./{stateAbbr}/districts_reassigned/plan-{fileId}.json",
