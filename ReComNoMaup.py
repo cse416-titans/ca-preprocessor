@@ -22,6 +22,7 @@ from os import makedirs
 import multiprocessing as mp
 from multiprocessing import Pool, Manager
 import math
+import maup
 
 """
 REQUIRED FILES:
@@ -37,7 +38,7 @@ def initWorker(state, num_cores, num_plans):
     global NUM_PROJECTED_PLANS_PER_CORE
     global NUM_PROJECTED_PLANS
     global NUM_CORES
-    global arr
+    global arr  # array of initial partitions per core
     global units
 
     global stateAbbr
@@ -46,6 +47,8 @@ def initWorker(state, num_cores, num_plans):
     NUM_CORES = num_cores
     NUM_PROJECTED_PLANS = num_plans
     NUM_PROJECTED_PLANS_PER_CORE = math.ceil(NUM_PROJECTED_PLANS / NUM_CORES)
+
+    global STEP
 
     STEP = 1000
 
@@ -91,41 +94,63 @@ def initWorker(state, num_cores, num_plans):
         constraints=[pop_constraint, compactness_bound],
         accept=accept.always_accept,
         initial_state=initial_partition,
-        total_steps=STEP * NUM_CORES * NUM_PROJECTED_PLANS_PER_CORE,
+        total_steps=STEP * NUM_CORES,
     )
 
     # save only every 1000th partition in the chain into an array
     arr = []
     i = 0
     for partition in chain.with_progress_bar():
-        i += 1
+        # print("Creating initial partitions: ", i)
         # pick only the last plan
+        i += 1
         if i % STEP != 0:
             continue
         arr.append(partition)
 
+    print("Done creating initial partitions.")
+    print("Length of arr: ", len(arr))
 
-def makeRandomPlansNoMaup(id, lock):
-    for x in range(NUM_PROJECTED_PLANS_PER_CORE):
-        procId = id + 1
 
-        fileId = (x + 1) + (procId - 1) * NUM_PROJECTED_PLANS_PER_CORE
+def makeRandomPlansNoMaup(id):
+    initial_partition = arr[id]
 
-        lock.acquire()
+    ideal_population = sum(initial_partition["population"].values()) / len(
+        initial_partition
+    )
 
-        print(
-            f"For process {procId}/{NUM_CORES}, plan: {x}/{NUM_PROJECTED_PLANS_PER_CORE}"
-        )
+    proposal = partial(
+        recom,
+        pop_col="Total_Population",
+        pop_target=ideal_population,
+        epsilon=0.1,
+        node_repeats=2,
+    )
 
-        partition = arr[x + (procId - 1) * NUM_PROJECTED_PLANS_PER_CORE]
+    compactness_bound = constraints.UpperBound(
+        lambda p: len(p["cut_edges"]), 2 * len(initial_partition["cut_edges"])
+    )
 
-        # update unit's assignment
+    pop_constraint = constraints.within_percent_of_ideal_population(
+        initial_partition, 0.10
+    )
+
+    chain = MarkovChain(
+        proposal=proposal,
+        constraints=[pop_constraint, compactness_bound],
+        accept=accept.always_accept,
+        initial_state=initial_partition,
+        total_steps=NUM_PROJECTED_PLANS_PER_CORE * STEP,
+    )
+
+    i = 0
+    for partition in chain.with_progress_bar():
+        i += 1
+        if i % STEP != 0:
+            continue
+        fileId = i // STEP + (id) * NUM_PROJECTED_PLANS_PER_CORE
         units["SLDL_DIST"] = partition.assignment
-
-        # convert unit's coordinates to lat/lon
         units["geometry"] = units["geometry"].to_crs(4326)
-
-        # save new units into json
         units.to_file(
             f"./{stateAbbr}/units/plan-{fileId}.json",
             driver="GeoJSON",
@@ -137,31 +162,16 @@ def makeRandomPlansNoMaup(id, lock):
         plt.close()
 
         units_copy = units.copy()
-
-        # create a new dataframe which aggregates the units to the district level and for its geometry, takes the union of the unit geometries
         districts = units_copy.dissolve(by="SLDL_DIST", aggfunc="sum")
-
-        # drop PCTNUM and PRECINCTNA column
-        districts = districts.drop(columns=["PCTNUM", "NAME"])
-
-        # avoid self-intersection
+        districts = districts.drop(columns=["PCTNUM", "PRECINCTNA"])
         districts["geometry"] = districts["geometry"].buffer(0)
-
-        # make geometry smooth
         districts["geometry"] = districts["geometry"].simplify(
             0.0001, preserve_topology=True
         )
-
-        # fill in any holes in the geometry
         districts["geometry"] = districts["geometry"].apply(lambda p: close_holes(p))
-
-        # print if the polygon is valid
-        # print(districts["geometry"].is_valid)
-
-        # convert to crs 4326
         districts["geometry"] = districts["geometry"].to_crs(4326)
 
-        # save the districts into a json
+        print("Saving plan: ", fileId)
         districts.to_file(
             f"./{stateAbbr}/districts/plan-{fileId}.json",
             driver="GeoJSON",
@@ -170,8 +180,6 @@ def makeRandomPlansNoMaup(id, lock):
         # To see the plot, uncomment the following lines
         # plt.axis("off")
         # plt.show()
-
-        lock.release()
 
 
 def start(state, num_cores, num_plans):
@@ -190,10 +198,7 @@ def start(state, num_cores, num_plans):
 
     start_time = datetime.now()
 
-    m = Manager()
-    l = m.Lock()
-
-    func = partial(makeRandomPlansNoMaup, lock=l)
+    func = partial(makeRandomPlansNoMaup)
 
     with Pool(
         initializer=initWorker,
