@@ -1,55 +1,28 @@
-import numpy as np
-import cvxpy as cp
-import networkx as nx
-from typing import List, Dict
-from gerrychain import Partition
-from scipy.optimize import linear_sum_assignment
-from networkx.linalg.graphmatrix import incidence_matrix
-
 import pandas as pd
 import geopandas as gpd
-import numpy as np
 
-from sklearn.manifold import MDS
-from sklearn.cluster import KMeans
 
-from datetime import datetime
-from os import makedirs
+def hammingdistance(a, b):
+    districtlistA = pd.read_csv(f"./AZ/district_list/district_list-{a}.csv")
+    districtlistB = pd.read_csv(f"./AZ/district_list/district_list-{b}.csv")
 
-import multiprocessing as mp
-from multiprocessing import Pool, Manager, current_process
+    planA = gpd.read_file(f"./AZ/units/plan-{a}.json")
+    planB = gpd.read_file(f"./AZ/units/plan-{b}.json")
 
-import math
-from random import random
+    dfA = planA[["PCTNUM", "SLDL_DIST"]]
+    dfB = planB[["PCTNUM", "SLDL_DIST"]]
 
-from gerrychain import (
-    GeographicPartition,
-    Partition,
-    Graph,
-    MarkovChain,
-    proposals,
-    updaters,
-    constraints,
-    accept,
-    Election,
-)
-import maup
-        
-districtsA = gpd.read_file(f"./AZ/districts_reassigned/plan-2.json")
-districtsB = gpd.read_file(f"./AZ/districts_reassigned/plan-3.json")
+    for i in dfA.index:
+        dfA["SLDL_DIST"][i] = int(dfA["SLDL_DIST"][i])
+        dfB["SLDL_DIST"][i] = int(dfB["SLDL_DIST"][i])
 
-planA = gpd.read_file(f"./AZ/units/plan-2.json")
-planB = gpd.read_file(f"./AZ/units/plan-3.json")
+    mergeA = dfA.merge(dfA.merge(districtlistA, how="left", on="SLDL_DIST", sort=False))
+    mergeB = dfB.merge(dfB.merge(districtlistB, how="left", on="SLDL_DIST", sort=False))
 
-PlanA_Assignment = maup.assign(planA, districtsA)
-PlanB_Assignment = maup.assign(planB, districtsB)
+    total = 0
+    for i in mergeA.index:
+        if mergeA["NEW_SLDL_DIST"][i] != mergeB["NEW_SLDL_DIST"][i]:
+            # print("i: " + str(i) + " A: " + str(mergeA["NEW_SLDL_DIST"][i]) + " B: " + str(mergeB["NEW_SLDL_DIST"][i]))
+            total += 1
 
-planA["new_dist"] = PlanA_Assignment
-print(planA)
-
-"""
-print(PlanA_Assignment.compare(PlanB_Assignment))
-        
-data = PlanA_Assignment.compare(PlanB_Assignment)
-data.to_csv("diff.csv")
-"""
+    return total

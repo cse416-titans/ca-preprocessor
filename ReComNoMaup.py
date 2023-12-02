@@ -18,7 +18,6 @@ from functools import partial
 from polygonUtil import close_holes
 
 from datetime import datetime
-from os import makedirs
 import multiprocessing as mp
 from multiprocessing import Pool, Manager
 import math
@@ -34,13 +33,14 @@ NUM_CORES = 0
 NUM_PROJECTED_PLANS = 0
 
 
-def initWorker(state, num_cores, num_plans):
+def initWorker(state, num_cores, num_plans, ensembleId):
     global NUM_PROJECTED_PLANS_PER_CORE
     global NUM_PROJECTED_PLANS
     global NUM_CORES
     global arr  # array of initial partitions per core
     global units
-
+    global ensemble_id
+    ensemble_id = ensembleId
     global stateAbbr
     stateAbbr = state
 
@@ -152,18 +152,18 @@ def makeRandomPlansNoMaup(id):
         units["SLDL_DIST"] = partition.assignment
         units["geometry"] = units["geometry"].to_crs(4326)
         units.to_file(
-            f"./{stateAbbr}/units/plan-{fileId}.json",
+            f"./{stateAbbr}/ensemble-{ensemble_id}/units/plan-{fileId}.json",
             driver="GeoJSON",
         )
 
         partition.plot(units, cmap="tab20")
         plt.axis("off")
-        plt.savefig(f"./{stateAbbr}/plots/plan-{fileId}.png")
+        plt.savefig(f"./{stateAbbr}/ensemble-{ensemble_id}/plots/plan-{fileId}.png")
         plt.close()
 
         units_copy = units.copy()
         districts = units_copy.dissolve(by="SLDL_DIST", aggfunc="sum")
-        districts = districts.drop(columns=["PCTNUM", "PRECINCTNA"])
+        districts = districts.drop(columns=["PCTNUM", "NAME"])
         districts["geometry"] = districts["geometry"].buffer(0)
         districts["geometry"] = districts["geometry"].simplify(
             0.0001, preserve_topology=True
@@ -173,7 +173,7 @@ def makeRandomPlansNoMaup(id):
 
         print("Saving plan: ", fileId)
         districts.to_file(
-            f"./{stateAbbr}/districts/plan-{fileId}.json",
+            f"./{stateAbbr}/ensemble-{ensemble_id}/districts/plan-{fileId}.json",
             driver="GeoJSON",
         )
 
@@ -182,19 +182,11 @@ def makeRandomPlansNoMaup(id):
         # plt.show()
 
 
-def start(state, num_cores, num_plans):
+def start(state, num_cores, num_plans, ensembleId):
     """
     [1...NUM_CORES] folders be made in the units, plots, districts, districts_reassigned, plots_reassigned folders.
     Each folder will have NUM_PLANS_PER_CORE plans inside it.
     """
-
-    # create directory named units, plots, districts, districts_reassigned, plots_reassigned if they don't exist
-    makedirs(f"{state}/units", exist_ok=True)
-    makedirs(f"{state}/plots", exist_ok=True)
-    makedirs(f"{state}/districts", exist_ok=True)
-    makedirs(f"{state}/districts_reassigned", exist_ok=True)
-    makedirs(f"{state}/plots_reassigned", exist_ok=True)
-    makedirs(f"{state}/district_list", exist_ok=True)
 
     start_time = datetime.now()
 
@@ -202,7 +194,7 @@ def start(state, num_cores, num_plans):
 
     with Pool(
         initializer=initWorker,
-        initargs=(state, num_cores, num_plans),
+        initargs=(state, num_cores, num_plans, ensembleId),
         processes=num_cores,
     ) as pool:
         result = pool.map(func, range(num_cores))

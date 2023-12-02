@@ -1,7 +1,7 @@
-import MakeOptimalTransportClusters
+import MakeClustersByDistanceMeasure
 
 
-def start(state, num_cores, num_plans):
+def start(state, num_cores, num_plans, ensembleId):
     # Configure directories
     if not state in ["AZ", "LA", "NV"]:
         print("Invalid state.")
@@ -15,12 +15,12 @@ def start(state, num_cores, num_plans):
 
     # Generate random plans
     if state == "AZ":
-        MakeOptimalTransportClusters.start(state, 0, num_cores, num_plans)
-        # MakeHammingClusters.start(state, 1)
-        # MakeEntropyClusters.start(state, 2)
+        MakeClustersByDistanceMeasure.start(state, 0, num_cores, num_plans, ensembleId)
+        # MakeClustersByDistanceMeasure.start(state, 1, num_cores, num_plans, ensembleId)
+        # MakeClustersByDistanceMeasure.start(state, 2, num_cores, num_plans, ensembleId)
     elif state == "LA":
-        MakeOptimalTransportClusters.start(state, 0, num_cores, num_plans)
+        MakeClustersByDistanceMeasure.start(state, 0, num_cores, num_plans, ensembleId)
     elif state == "NV":
-        MakeOptimalTransportClusters.start(state, 0, num_cores, num_plans)
+        MakeClustersByDistanceMeasure.start(state, 0, num_cores, num_plans, ensembleId)
     else:
         print("Invalid state.")

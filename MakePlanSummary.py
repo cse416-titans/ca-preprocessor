@@ -4,14 +4,15 @@ from os import makedirs
 import json
 import collections
 
-if __name__ == "__main__":
+
+def start(state, num_plans, ensembleId):
     # open all json files in ./districts_reassigned and generate summary statistics in ./summary
     start_time = datetime.now()
 
-    makedirs("summary", exist_ok=True)
-
-    for i in range(2000, 11000, 1000):
-        districts = gpd.read_file(f"./districts_reassigned/az_pl2020_sldl_{i}.json")
+    for i in range(1, num_plans + 1):
+        districts = gpd.read_file(
+            f"{state}/ensemble-{ensembleId}/districts_reassigned/plan-{i}.json"
+        )
 
         # drop the geometry column
         districts = districts.drop(columns=["geometry"])
@@ -26,5 +27,10 @@ if __name__ == "__main__":
         """
 
         # save the dictionary into a json
-        with open(f"./summary/az_pl2020_sldl_{i}.json", "w") as outfile:
+        with open(
+            f"{state}/ensemble-{ensembleId}/summary/plan-{i}-summary.json", "w"
+        ) as outfile:
             json.dump(od, outfile, indent=4)
+
+    end_time = datetime.now()
+    print("Duration: {}".format(end_time - start_time))

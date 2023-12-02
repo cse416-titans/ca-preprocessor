@@ -198,7 +198,7 @@ def makeRandomPlansNoMaup(id, lock):
         lock.release()
 
 
-def start(state, num_cores, num_plans):
+def start(state, num_cores, num_plans, ensembleId):
     """
     [1...NUM_CORES] folders be made in the units, plots, districts, districts_reassigned, plots_reassigned folders.
     Each folder will have NUM_PLANS_PER_CORE plans inside it.

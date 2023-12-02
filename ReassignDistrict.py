@@ -23,13 +23,15 @@ NUM_CORES = 0
 NUM_PROJECTED_PLANS = 0
 
 
-def initWorker(state, num_cores, num_plans):
+def initWorker(state, num_cores, num_plans, ensembleId):
     global NUM_PROJECTED_PLANS_PER_CORE
     global NUM_CORES
 
     global stateAbbr
+    global ensemble_id
 
     stateAbbr = state
+    ensemble_id = ensembleId
 
     NUM_CORES = num_cores
     NUM_PROJECTED_PLANS = num_plans
@@ -40,7 +42,9 @@ def reassign(arg):
     # open all the jsons in ./districts, and reassign district numbers (that means, update SLDL_DIST column) to match the district numbers of the first json based on its geometric similarity
     # save the new jsons into ./districts_reassigned
 
-    original_plan = gpd.read_file(f"./{stateAbbr}/districts/plan-{1}.json")
+    original_plan = gpd.read_file(
+        f"./{stateAbbr}/ensemble-{ensemble_id}/districts/plan-{1}.json"
+    )
     original_plan = original_plan.to_crs(32030)
 
     """
@@ -53,7 +57,9 @@ def reassign(arg):
     for x in range(n):
         fileId = (x + 1) + (procId - 1) * n
 
-        new_plan = gpd.read_file(f"./{stateAbbr}/districts/plan-{fileId}.json")
+        new_plan = gpd.read_file(
+            f"./{stateAbbr}/ensemble-{ensemble_id}/districts/plan-{fileId}.json"
+        )
         new_plan = new_plan.to_crs(32030)
 
         print(f"For process {procId}, new_plan: {x}")
@@ -136,9 +142,11 @@ def reassign(arg):
         print("unique:", new_plan["NEW_SLDL_DIST"])
         print("unique:", new_plan["NEW_SLDL_DIST"].is_unique)
 
-        # save changed dist list for calculate hamming distance
+        # save old-new district assignment pairs into a csv
         distlist = new_plan[["SLDL_DIST", "NEW_SLDL_DIST"]]
-        distlist.to_csv(f"./{stateAbbr}/district_list/district_list-{fileId}.csv")
+        distlist.to_csv(
+            f"./{stateAbbr}/ensemble-{ensemble_id}/district_list/district_list-{fileId}.csv"
+        )
 
         # drop the old SLDL_DIST column
         new_plan = new_plan.drop(columns=["SLDL_DIST"])
@@ -148,10 +156,10 @@ def reassign(arg):
 
         # revert its crs back to 4326
         new_plan["geometry"] = new_plan["geometry"].to_crs(4326)
-        
+
         # save the new_plan into ./districts_reassigned
         new_plan.to_file(
-            f"./{stateAbbr}/districts_reassigned/plan-{fileId}.json",
+            f"./{stateAbbr}/ensemble-{ensemble_id}/districts_reassigned/plan-{fileId}.json",
             driver="GeoJSON",
         )
 
@@ -166,11 +174,13 @@ def reassign(arg):
         )
 
         plt.axis("off")
-        plt.savefig(f"./{stateAbbr}/plots_reassigned/plan-{fileId}.png")
+        plt.savefig(
+            f"./{stateAbbr}/ensemble-{ensemble_id}/plots_reassigned/plan-{fileId}.png"
+        )
         plt.close()
 
 
-def start(state, num_cores, num_plans):
+def start(state, num_cores, num_plans, ensembleId):
     start_time = datetime.now()
 
     NUM_PLANS = 20
@@ -182,7 +192,7 @@ def start(state, num_cores, num_plans):
 
     with Pool(
         initializer=initWorker,
-        initargs=(state, num_cores, num_plans),
+        initargs=(state, num_cores, num_plans, ensembleId),
         processes=num_cores,
     ) as pool:
         pool.map(reassign, range(num_cores))

@@ -1,4 +1,6 @@
 from OptimalTransport import Pair
+from HammingDistance import hammingdistance
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import geopandas as gpd
@@ -16,6 +18,8 @@ from multiprocessing import Pool, Manager, current_process
 import math
 from random import random
 
+from gerrychain import GeographicPartition, Graph
+
 
 MAX_NUM_PLANS = 1000
 MAX_NUM_COMPARISON = MAX_NUM_PLANS * MAX_NUM_PLANS / 2
@@ -25,21 +29,30 @@ NUM_COMPARISON = 0
 NUM_CORES = 0
 NUM_COMPARISON_PER_CORE = 0
 
+DISTANCEMEASURE_ID = 0
+
 
 # initialize worker processes
-def initWorker(state, num_cores, num_plans):
+def initWorker(state, num_cores, num_plans, id, ensembleId):
     global NUM_CORES
     global NUM_PLANS
     global NUM_COMPARISON
     global NUM_COMPARISON_PER_CORE
 
+    global queue_core
+    global distance_matrix
+    global distancemeasure_id
+    global ensemble_id
+    global stateAbbr
+
+    stateAbbr = state
+    distancemeasure_id = id
+    ensemble_id = ensembleId
+
     NUM_CORES = num_cores
     NUM_PLANS = num_plans
     NUM_COMPARISON = NUM_PLANS * NUM_PLANS / 2
     NUM_COMPARISON_PER_CORE = math.ceil(NUM_COMPARISON / NUM_CORES)
-
-    global queue_core
-    global distance_matrix
 
     distance_matrix = np.zeros((NUM_PLANS, NUM_PLANS))
 
@@ -66,32 +79,51 @@ def makeCluster(arg):
 
     for i in range(len(queue)):
         print("i: ", i, ", queue[i]: ", queue[i])
-        if queue[i][0] != queue[i][1]:
-            distance_matrix[queue[i][0], queue[i][1]] = 1 + random() * 2
 
-        """
-        districtsA = gpd.read_file(f"./units/az_pl2020_vtd_{queue[i][0]}.json")
+        districtsA = gpd.read_file(
+            f"./{stateAbbr}/ensemble-{ensemble_id}/units/plan-{queue[i][0]+1}.json"
+        )
         graphA = Graph.from_geodataframe(districtsA)
 
-        districtsB = gpd.read_file(f"./units/az_pl2020_vtd_{queue[i][1]}.json")
+        districtsB = gpd.read_file(
+            f"./{stateAbbr}/ensemble-{ensemble_id}/units/plan-{queue[i][1]+1}.json"
+        )
         graphB = Graph.from_geodataframe(districtsB)
 
         # calculate distance
-        distance_matrix[queue[i][0], queue[i][1]] = Pair(
-            GeographicPartition(graphA, assignment="SLDL_DIST"),
-            GeographicPartition(graphB, assignment="SLDL_DIST"),
-        ).distance
-        """
+        if distancemeasure_id == 0:  # optimal transport
+            """
+            distance_matrix[queue[i][0], queue[i][1]] = Pair(
+                GeographicPartition(graphA, assignment="SLDL_DIST"),
+                GeographicPartition(graphB, assignment="SLDL_DIST"),
+            ).distance
+            """
+            if queue[i][0] != queue[i][1]:
+                distance_matrix[queue[i][0], queue[i][1]] = 1 + random() * 2
+        elif distancemeasure_id == 1:  # Hamming distance
+            """
+            distance_matrix[queue[i][0], queue[i][1]] = hammingdistance(
+                queue[i][0], queue[i][1]
+            )
+            """
+            if queue[i][0] != queue[i][1]:
+                distance_matrix[queue[i][0], queue[i][1]] = 1 + random() * 2
+        elif distancemeasure_id == 2:  # Entropy distance
+            if queue[i][0] != queue[i][1]:
+                distance_matrix[queue[i][0], queue[i][1]] = 1 + random() * 2
+        else:
+            print("Invalid distance measure id.")
+            exit()
 
     return distance_matrix
 
 
-def start(state, id, num_cores, num_plans):
-    makedirs(f"./{state}/clusterSet-{id+1}", exist_ok=True)
+def start(state, id, num_cores, num_plans, ensembleId):
+    makedirs(f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}", exist_ok=True)
 
     with Pool(
         initializer=initWorker,
-        initargs=(state, num_cores, num_plans),
+        initargs=(state, num_cores, num_plans, id, ensembleId),
         processes=num_cores,
     ) as pool:
         res = pool.map(makeCluster, range(num_cores))
@@ -137,7 +169,7 @@ def start(state, id, num_cores, num_plans):
     plt.xlabel("k")
     plt.ylabel("Distortion")
     plt.title("The Elbow Method showing the optimal k")
-    plt.savefig(f"./{state}/clusterSet-{id+1}/elbowPlot.png")
+    plt.savefig(f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}/elbowPlot.png")
     plt.close()
 
     print("distortions:", distortions)
@@ -168,19 +200,24 @@ def start(state, id, num_cores, num_plans):
     plt.scatter(pos[:, 0], pos[:, 1], c=y_kmeans, s=50, cmap="viridis")
     centers = kmeans.cluster_centers_
     plt.scatter(centers[:, 0], centers[:, 1], c="black", s=200, alpha=0.5)
-    plt.savefig(f"./{state}/clusterSet-{id+1}/clusterPlot.png")
+    plt.savefig(f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}/clusterPlot.png")
     plt.close()
 
     # for all plans in district_reassigned folder, move them into their respective cluster folders. For example, if plan-1.json is in cluster 0, move it to clusterSet-0/cluster-0/plan-1.json
     for i in range(num_plans):
-        plan = gpd.read_file(f"./{state}/districts_reassigned/plan-{i+1}.json")
+        plan = gpd.read_file(
+            f"./{state}/ensemble-{ensembleId}/districts_reassigned/plan-{i+1}.json"
+        )
 
         # create cluster folders
-        makedirs(f"./{state}/clusterSet-{id+1}/cluster-{y_kmeans[i]+1}", exist_ok=True)
+        makedirs(
+            f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}/cluster-{y_kmeans[i]+1}",
+            exist_ok=True,
+        )
 
         # save plan into its respective cluster folder
         plan.to_file(
-            f"./{state}/clusterSet-{id+1}/cluster-{y_kmeans[i]+1}/plan-{i+1}.json",
+            f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}/cluster-{y_kmeans[i]+1}/plan-{i+1}.json",
             driver="GeoJSON",
         )
 
@@ -188,4 +225,5 @@ def start(state, id, num_cores, num_plans):
 
 
 if __name__ == "__main__":
-    start("AZ", 0)
+    # start("AZ", 0)
+    pass
