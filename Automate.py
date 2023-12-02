@@ -9,10 +9,10 @@ import sys
 if __name__ == "__main__":
     num_cores = int(sys.argv[1])
 
-    for state in ["AZ"]:
+    for state in ["AZ", "LA"]:
         makedirs(f"{state}", exist_ok=True)
         ensembleId = 0
-        for num_plans in [5, 10]:
+        for num_plans in [5, 7]:
             ensembleId += 1
             makedirs(f"{state}/ensemble-{ensembleId}", exist_ok=True)
 

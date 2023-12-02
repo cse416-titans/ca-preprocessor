@@ -134,26 +134,26 @@ def start(state, id, num_cores, num_plans, ensembleId):
 
     # aggregate all arrays in res into one
     agg = np.zeros((num_plans, num_plans))
-
     for i in range(len(res)):
         mask = agg == 0
         agg[mask] = res[i][mask]
 
-    # get last updated distance matrix
-    # print("agg:", agg)
-
-    # print("distances:", distances)
-
     # get symmetrized distance matrix
     distances = np.maximum(agg, agg.transpose())
-
-    print(distances)
-
     mds = MDS(n_components=2, random_state=0, dissimilarity="precomputed")
     pos = mds.fit(distances).embedding_
 
-    # use this for k-means clustering
-    print(pos)
+    # save distance matrix into a csv
+    df = pd.DataFrame(distances)
+    df.to_csv(
+        f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}/distance-matrix-summary.csv"
+    )
+
+    # save pos into a csv
+    df = pd.DataFrame(pos)
+    df.to_csv(
+        f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}/plan-mds-coordinates-summary.csv"
+    )
 
     # using pos, run k-means clustering with elbow method to find optimal number of clusters
     distortions = []
@@ -172,7 +172,7 @@ def start(state, id, num_cores, num_plans, ensembleId):
     plt.savefig(f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}/elbowPlot.png")
     plt.close()
 
-    print("distortions:", distortions)
+    # print("distortions:", distortions)
 
     # calculate elbow point
     elbow = 0
@@ -183,7 +183,7 @@ def start(state, id, num_cores, num_plans, ensembleId):
             elbow = i + 1
             break
 
-    print("elbow:", elbow)
+    # print("elbow:", elbow)
 
     if elbow == 0:
         elbow = num_plans
@@ -196,9 +196,16 @@ def start(state, id, num_cores, num_plans, ensembleId):
     print("y_kmeans:", y_kmeans)
     print("kmeans.cluster_centers_:", kmeans.cluster_centers_)
 
+    centers = kmeans.cluster_centers_
+
+    # save cluster centers into a csv
+    df = pd.DataFrame(centers)
+    df.to_csv(
+        f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}/cluster-centers-summary.csv"
+    )
+
     # plot clusters
     plt.scatter(pos[:, 0], pos[:, 1], c=y_kmeans, s=50, cmap="viridis")
-    centers = kmeans.cluster_centers_
     plt.scatter(centers[:, 0], centers[:, 1], c="black", s=200, alpha=0.5)
     plt.savefig(f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}/clusterPlot.png")
     plt.close()
