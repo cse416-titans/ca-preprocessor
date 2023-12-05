@@ -4,14 +4,13 @@ from os import makedirs
 import json
 import collections
 
-
 def start(state, num_plans, ensembleId):
     # open all json files in ./districts_reassigned and generate summary statistics in ./summary
     start_time = datetime.now()
 
     for i in range(1, num_plans + 1):
         districts = gpd.read_file(
-            f"{state}/ensemble-{ensembleId}/districts_reassigned/plan-{i}.json"
+            f"/gpfs/projects/CSE416/Titans/{state}/ensemble-{ensembleId}/districts_reassigned/plan-{i}.json"
         )
 
         # drop the geometry column
@@ -28,7 +27,7 @@ def start(state, num_plans, ensembleId):
 
         # save the dictionary into a json
         with open(
-            f"{state}/ensemble-{ensembleId}/summary/plan-{i}-summary.json", "w"
+            f"/gpfs/projects/CSE416/Titans/{state}/ensemble-{ensembleId}/summary/plan-{i}-summary.json", "w"
         ) as outfile:
             json.dump(od, outfile, indent=4)
 

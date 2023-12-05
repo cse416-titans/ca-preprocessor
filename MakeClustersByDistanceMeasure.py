@@ -1,5 +1,6 @@
 from OptimalTransport import Pair
 from HammingDistance import hammingdistance
+from EntropyDistance import entropydistance
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -12,7 +13,6 @@ from sklearn.cluster import KMeans
 from datetime import datetime
 from os import makedirs
 
-import multiprocessing as mp
 from multiprocessing import Pool, Manager, current_process
 
 import math
@@ -80,37 +80,25 @@ def makeCluster(arg):
     for i in range(len(queue)):
         print("i: ", i, ", queue[i]: ", queue[i])
 
-        districtsA = gpd.read_file(
-            f"./{stateAbbr}/ensemble-{ensemble_id}/units/plan-{queue[i][0]+1}.json"
-        )
-        graphA = Graph.from_geodataframe(districtsA)
-
-        districtsB = gpd.read_file(
-            f"./{stateAbbr}/ensemble-{ensemble_id}/units/plan-{queue[i][1]+1}.json"
-        )
-        graphB = Graph.from_geodataframe(districtsB)
-
         # calculate distance
-        if distancemeasure_id == 0:  # optimal transport
-            """
+        if distancemeasure_id == 0: # Hamming distance
+            distance_matrix[queue[i][0], queue[i][1]] = hammingdistance(queue[i][0]+1, queue[i][1]+1, ensemble_id) 
+        elif distancemeasure_id == 1: # Entropy distance
+            distance_matrix[queue[i][0], queue[i][1]] = entropydistance(queue[i][0]+1, queue[i][1]+1, ensemble_id) 
+        elif distancemeasure_id == 2: # optimal transport
+            districtsA = gpd.read_file(
+                f"./{stateAbbr}/ensemble-{ensemble_id}/units/plan-{queue[i][0]+1}.json"
+            )
+            graphA = Graph.from_geodataframe(districtsA)
+            districtsB = gpd.read_file(
+                f"./{stateAbbr}/ensemble-{ensemble_id}/units/plan-{queue[i][1]+1}.json"
+                )
+            graphB = Graph.from_geodataframe(districtsB)
+
             distance_matrix[queue[i][0], queue[i][1]] = Pair(
                 GeographicPartition(graphA, assignment="SLDL_DIST"),
                 GeographicPartition(graphB, assignment="SLDL_DIST"),
             ).distance
-            """
-            if queue[i][0] != queue[i][1]:
-                distance_matrix[queue[i][0], queue[i][1]] = 1 + random() * 2
-        elif distancemeasure_id == 1:  # Hamming distance
-            """
-            distance_matrix[queue[i][0], queue[i][1]] = hammingdistance(
-                queue[i][0], queue[i][1]
-            )
-            """
-            if queue[i][0] != queue[i][1]:
-                distance_matrix[queue[i][0], queue[i][1]] = 1 + random() * 2
-        elif distancemeasure_id == 2:  # Entropy distance
-            if queue[i][0] != queue[i][1]:
-                distance_matrix[queue[i][0], queue[i][1]] = 1 + random() * 2
         else:
             print("Invalid distance measure id.")
             exit()
@@ -140,11 +128,12 @@ def start(state, id, num_cores, num_plans, ensembleId):
 
     # get symmetrized distance matrix
     distances = np.maximum(agg, agg.transpose())
+    distances_normalize = distances/distances.max()
     mds = MDS(n_components=2, random_state=0, dissimilarity="precomputed")
-    pos = mds.fit(distances).embedding_
+    pos = mds.fit(distances_normalize).embedding_
 
     # save distance matrix into a csv
-    df = pd.DataFrame(distances)
+    df = pd.DataFrame(distances_normalize)
     df.to_csv(
         f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}/distance-matrix-summary.csv"
     )

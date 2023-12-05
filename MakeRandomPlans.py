@@ -1,7 +1,6 @@
 import ReComMaup
 import ReComNoMaup
 
-
 def start(state, num_cores, num_plans, ensembleId):
     # Generate random plans
     if state == "AZ":
@@ -12,7 +11,3 @@ def start(state, num_cores, num_plans, ensembleId):
         ReComNoMaup.start(state, num_cores, num_plans, ensembleId)
     else:
         print("Invalid state.")
-
-    """
-    TODO: Rename files in order
-    """

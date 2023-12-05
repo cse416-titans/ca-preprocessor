@@ -1,6 +1,13 @@
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
+from gerrychain.proposals import recom
+from functools import partial
+from polygonUtil import close_holes
+from datetime import datetime
+import multiprocessing as mp
+from multiprocessing import Pool, Manager
+import math
 from gerrychain import (
     GeographicPartition,
     Partition,
@@ -13,25 +20,13 @@ from gerrychain import (
     Election,
 )
 
-from gerrychain.proposals import recom
-from functools import partial
-from polygonUtil import close_holes
-
-from datetime import datetime
-import multiprocessing as mp
-from multiprocessing import Pool, Manager
-import math
-import maup
-
 """
 REQUIRED FILES:
 1. azjson.json (aggregated precinct level census + election + district_plan shapefile)
 """
-
 # default values
 NUM_CORES = 0
 NUM_PROJECTED_PLANS = 0
-
 
 def initWorker(state, num_cores, num_plans, ensembleId):
     global NUM_PROJECTED_PLANS_PER_CORE
@@ -47,11 +42,8 @@ def initWorker(state, num_cores, num_plans, ensembleId):
     NUM_CORES = num_cores
     NUM_PROJECTED_PLANS = num_plans
     NUM_PROJECTED_PLANS_PER_CORE = math.ceil(NUM_PROJECTED_PLANS / NUM_CORES)
-
     global STEP
-
-    STEP = 1000
-
+    STEP = 10000
     n = NUM_PROJECTED_PLANS_PER_CORE
 
     # load in the json
@@ -97,7 +89,7 @@ def initWorker(state, num_cores, num_plans, ensembleId):
         total_steps=STEP * NUM_CORES,
     )
 
-    # save only every 1000th partition in the chain into an array
+    # save only every 10000th partition in the chain into an array
     arr = []
     i = 0
     for partition in chain.with_progress_bar():
@@ -110,7 +102,6 @@ def initWorker(state, num_cores, num_plans, ensembleId):
 
     print("Done creating initial partitions.")
     print("Length of arr: ", len(arr))
-
 
 def makeRandomPlansNoMaup(id):
     initial_partition = arr[id]
@@ -176,11 +167,9 @@ def makeRandomPlansNoMaup(id):
             f"./{stateAbbr}/ensemble-{ensemble_id}/districts/plan-{fileId}.json",
             driver="GeoJSON",
         )
-
         # To see the plot, uncomment the following lines
         # plt.axis("off")
         # plt.show()
-
 
 def start(state, num_cores, num_plans, ensembleId):
     """
@@ -189,7 +178,6 @@ def start(state, num_cores, num_plans, ensembleId):
     """
 
     start_time = datetime.now()
-
     func = partial(makeRandomPlansNoMaup)
 
     with Pool(
@@ -202,9 +190,7 @@ def start(state, num_cores, num_plans, ensembleId):
         pool.join()
 
     end_time = datetime.now()
-
     print("Duration: ", end_time - start_time)
-
 
 if __name__ == "__main__":
     pass

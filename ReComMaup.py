@@ -12,13 +12,10 @@ from gerrychain import (
     accept,
     Election,
 )
-
 import maup
-
 from gerrychain.proposals import recom
 from functools import partial
 from polygonUtil import close_holes
-
 from datetime import datetime
 from os import makedirs
 import multiprocessing as mp
@@ -34,21 +31,17 @@ REQUIRED FILES:
 NUM_CORES = 0
 NUM_PROJECTED_PLANS = 0
 
-
 def initWorker(state, num_cores, num_plans):
     global NUM_PROJECTED_PLANS_PER_CORE
     global NUM_PROJECTED_PLANS
     global NUM_CORES
     global arr
     global units
-
     global stateAbbr
     stateAbbr = state
-
     NUM_CORES = num_cores
     NUM_PROJECTED_PLANS = num_plans
     NUM_PROJECTED_PLANS_PER_CORE = math.ceil(NUM_PROJECTED_PLANS / NUM_CORES)
-
     STEP = 1000
 
     # load in the vtd and district shapefiles

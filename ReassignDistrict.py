@@ -1,13 +1,10 @@
 import geopandas as gpd
 import matplotlib.pyplot as plt
-
 import warnings
-
 from datetime import datetime
 import numpy as np
 from numpy import unravel_index
 from polygonUtil import formatStr
-
 import multiprocessing as mp
 from multiprocessing import Pool
 import math
@@ -16,17 +13,15 @@ warnings.filterwarnings("ignore")
 
 """
 REQUIRED FILES:
-1. 10 jsons in ./districts
+1. jsons in ./districts
 """
 
 NUM_CORES = 0
 NUM_PROJECTED_PLANS = 0
 
-
 def initWorker(state, num_cores, num_plans, ensembleId):
     global NUM_PROJECTED_PLANS_PER_CORE
     global NUM_CORES
-
     global stateAbbr
     global ensemble_id
 
@@ -46,10 +41,6 @@ def reassign(arg):
         f"./{stateAbbr}/ensemble-{ensemble_id}/districts/plan-{1}.json"
     )
     original_plan = original_plan.to_crs(32030)
-
-    """
-    for i in range(2000, 11000, 1000):
-    """
 
     n = NUM_PROJECTED_PLANS_PER_CORE
     procId = arg + 1
@@ -76,34 +67,28 @@ def reassign(arg):
                     original_plan["SLDL_DIST"] == original_district
                 ]
 
-                # find the intersection between the two districts
                 intersection = gpd.overlay(
                     new_plan_district, original_plan_district, how="intersection"
                 )
 
-                # calculate the area difference between the two districts
                 area_difference = abs(
                     new_plan_district["geometry"].area.sum()
                     - original_plan_district["geometry"].area.sum()
                 )
 
-                # calculate perimeter difference between the two districts
                 perimeter_difference = abs(
                     new_plan_district["geometry"].length.sum()
                     - original_plan_district["geometry"].length.sum()
                 )
 
-                # calculate similarity based on those two factors
                 similarity = (
                     1e-5 * (intersection["geometry"].area.sum())
                     + 1e4 * (1 / area_difference)
                     + 1e4 * (1 / perimeter_difference)
                 )
 
-                # save the area into the matrix
                 matrix[int(district) - 1][int(original_district) - 1] = similarity
 
-        # initialize NEW_SLDL_DIST column
         new_plan["NEW_SLDL_DIST"] = 0
 
         while np.any(matrix):
@@ -122,7 +107,7 @@ def reassign(arg):
                     new_plan["SLDL_DIST"] == formatStr(idx[0] + 1), "NEW_SLDL_DIST"
                 ] = formatStr(idx[1] + 1)
 
-            # also empty its swap location
+            # empty its swap location
             matrix[:, idx[1]] = 0
             matrix[idx[0], :] = 0
 
@@ -148,22 +133,15 @@ def reassign(arg):
             f"./{stateAbbr}/ensemble-{ensemble_id}/district_list/district_list-{fileId}.csv"
         )
 
-        # drop the old SLDL_DIST column
         new_plan = new_plan.drop(columns=["SLDL_DIST"])
-
-        # rename the NEW_SLDL_DIST column to SLDL_DIST
         new_plan = new_plan.rename(columns={"NEW_SLDL_DIST": "SLDL_DIST"})
-
-        # revert its crs back to 4326
         new_plan["geometry"] = new_plan["geometry"].to_crs(4326)
 
-        # save the new_plan into ./districts_reassigned
         new_plan.to_file(
             f"./{stateAbbr}/ensemble-{ensemble_id}/districts_reassigned/plan-{fileId}.json",
             driver="GeoJSON",
         )
 
-        # also save its plot
         ax = new_plan.plot(column="SLDL_DIST", cmap="tab20")
 
         new_plan.apply(
@@ -178,7 +156,6 @@ def reassign(arg):
             f"./{stateAbbr}/ensemble-{ensemble_id}/plots_reassigned/plan-{fileId}.png"
         )
         plt.close()
-
 
 def start(state, num_cores, num_plans, ensembleId):
     start_time = datetime.now()
@@ -202,7 +179,6 @@ def start(state, num_cores, num_plans, ensembleId):
     end_time = datetime.now()
 
     print("Duration: {}".format(end_time - start_time))
-
 
 if __name__ == "__main__":
     start()

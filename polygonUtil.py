@@ -3,7 +3,6 @@ from shapely.ops import cascaded_union
 import geopandas as gpd
 import pandas as pd
 
-
 def remove_interiors(poly):
     """
     Close polygon holes by limitation to the exterior ring.
@@ -22,7 +21,6 @@ def remove_interiors(poly):
     else:
         return poly
 
-
 def pop_largest(gs):
     """
     Pop the largest polygon off of a GeoSeries
@@ -38,7 +36,6 @@ def pop_largest(gs):
     """
     geoms = [g.area for g in gs]
     return gs.pop(geoms.index(max(geoms)))
-
 
 def close_holes(geom):
     """
@@ -62,7 +59,6 @@ def close_holes(geom):
         return Polygon(big)
     if isinstance(geom, Polygon):
         return remove_interiors(geom)
-
 
 def formatStr(n):
     if n < 10:
