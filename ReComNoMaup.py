@@ -28,6 +28,7 @@ REQUIRED FILES:
 NUM_CORES = 0
 NUM_PROJECTED_PLANS = 0
 
+
 def initWorker(state, num_cores, num_plans, ensembleId):
     global NUM_PROJECTED_PLANS_PER_CORE
     global NUM_PROJECTED_PLANS
@@ -46,10 +47,8 @@ def initWorker(state, num_cores, num_plans, ensembleId):
     STEP = 10000
     n = NUM_PROJECTED_PLANS_PER_CORE
 
-    # load in the json
     units = gpd.read_file("azjson.json").to_crs(32030)
 
-    # configure updaters for the recom chain
     elections = [Election("PRED20", {"Dem": "Democratic", "Rep": "Republic"})]
     my_updaters = {"population": updaters.Tally("Total_Population", alias="population")}
     election_updaters = {election.name: election for election in elections}
@@ -102,6 +101,7 @@ def initWorker(state, num_cores, num_plans, ensembleId):
 
     print("Done creating initial partitions.")
     print("Length of arr: ", len(arr))
+
 
 def makeRandomPlansNoMaup(id):
     initial_partition = arr[id]
@@ -171,12 +171,8 @@ def makeRandomPlansNoMaup(id):
         # plt.axis("off")
         # plt.show()
 
-def start(state, num_cores, num_plans, ensembleId):
-    """
-    [1...NUM_CORES] folders be made in the units, plots, districts, districts_reassigned, plots_reassigned folders.
-    Each folder will have NUM_PLANS_PER_CORE plans inside it.
-    """
 
+def start(state, num_cores, num_plans, ensembleId):
     start_time = datetime.now()
     func = partial(makeRandomPlansNoMaup)
 
@@ -191,6 +187,7 @@ def start(state, num_cores, num_plans, ensembleId):
 
     end_time = datetime.now()
     print("Duration: ", end_time - start_time)
+
 
 if __name__ == "__main__":
     pass

@@ -1,23 +1,17 @@
 from OptimalTransport import Pair
 from HammingDistance import hammingdistance
 from EntropyDistance import entropydistance
-
 import matplotlib.pyplot as plt
 import pandas as pd
 import geopandas as gpd
 import numpy as np
-
 from sklearn.manifold import MDS
 from sklearn.cluster import KMeans
-
 from datetime import datetime
 from os import makedirs
-
 from multiprocessing import Pool, Manager, current_process
-
 import math
 from random import random
-
 from gerrychain import GeographicPartition, Graph
 
 
@@ -81,18 +75,22 @@ def makeCluster(arg):
         print("i: ", i, ", queue[i]: ", queue[i])
 
         # calculate distance
-        if distancemeasure_id == 0: # Hamming distance
-            distance_matrix[queue[i][0], queue[i][1]] = hammingdistance(queue[i][0]+1, queue[i][1]+1, ensemble_id) 
-        elif distancemeasure_id == 1: # Entropy distance
-            distance_matrix[queue[i][0], queue[i][1]] = entropydistance(queue[i][0]+1, queue[i][1]+1, ensemble_id) 
-        elif distancemeasure_id == 2: # optimal transport
+        if distancemeasure_id == 0:  # Hamming distance
+            distance_matrix[queue[i][0], queue[i][1]] = hammingdistance(
+                queue[i][0] + 1, queue[i][1] + 1, ensemble_id
+            )
+        elif distancemeasure_id == 1:  # Entropy distance
+            distance_matrix[queue[i][0], queue[i][1]] = entropydistance(
+                queue[i][0] + 1, queue[i][1] + 1, ensemble_id
+            )
+        elif distancemeasure_id == 2:  # optimal transport
             districtsA = gpd.read_file(
                 f"./{stateAbbr}/ensemble-{ensemble_id}/units/plan-{queue[i][0]+1}.json"
             )
             graphA = Graph.from_geodataframe(districtsA)
             districtsB = gpd.read_file(
                 f"./{stateAbbr}/ensemble-{ensemble_id}/units/plan-{queue[i][1]+1}.json"
-                )
+            )
             graphB = Graph.from_geodataframe(districtsB)
 
             distance_matrix[queue[i][0], queue[i][1]] = Pair(
@@ -128,7 +126,7 @@ def start(state, id, num_cores, num_plans, ensembleId):
 
     # get symmetrized distance matrix
     distances = np.maximum(agg, agg.transpose())
-    distances_normalize = distances/distances.max()
+    distances_normalize = distances / distances.max()
     mds = MDS(n_components=2, random_state=0, dissimilarity="precomputed")
     pos = mds.fit(distances_normalize).embedding_
 
@@ -173,7 +171,6 @@ def start(state, id, num_cores, num_plans, ensembleId):
             break
 
     # print("elbow:", elbow)
-
     if elbow == 0:
         elbow = num_plans
 

@@ -19,6 +19,7 @@ REQUIRED FILES:
 NUM_CORES = 0
 NUM_PROJECTED_PLANS = 0
 
+
 def initWorker(state, num_cores, num_plans, ensembleId):
     global NUM_PROJECTED_PLANS_PER_CORE
     global NUM_CORES
@@ -34,9 +35,6 @@ def initWorker(state, num_cores, num_plans, ensembleId):
 
 
 def reassign(arg):
-    # open all the jsons in ./districts, and reassign district numbers (that means, update SLDL_DIST column) to match the district numbers of the first json based on its geometric similarity
-    # save the new jsons into ./districts_reassigned
-
     original_plan = gpd.read_file(
         f"./{stateAbbr}/ensemble-{ensemble_id}/districts/plan-{1}.json"
     )
@@ -107,7 +105,6 @@ def reassign(arg):
                     new_plan["SLDL_DIST"] == formatStr(idx[0] + 1), "NEW_SLDL_DIST"
                 ] = formatStr(idx[1] + 1)
 
-            # empty its swap location
             matrix[:, idx[1]] = 0
             matrix[idx[0], :] = 0
 
@@ -157,15 +154,11 @@ def reassign(arg):
         )
         plt.close()
 
+
 def start(state, num_cores, num_plans, ensembleId):
     start_time = datetime.now()
 
     NUM_PLANS = 20
-
-    """
-    [1...NUM_CORES] folders be made in the units, plots, districts, districts_reassigned, plots_reassigned folders.
-    Each folder will have NUM_PLANS_PER_CORE plans inside it.
-    """
 
     with Pool(
         initializer=initWorker,
@@ -179,6 +172,7 @@ def start(state, num_cores, num_plans, ensembleId):
     end_time = datetime.now()
 
     print("Duration: {}".format(end_time - start_time))
+
 
 if __name__ == "__main__":
     start()
