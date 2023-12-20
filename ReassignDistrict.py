@@ -35,26 +35,45 @@ def initWorker(state, num_cores, num_plans, ensembleId):
 
 
 def reassign(arg):
+    stateAbbr = "NV"
+    ensemble_id = 1
+
     original_plan = gpd.read_file(
         f"./{stateAbbr}/ensemble-{ensemble_id}/districts/plan-{1}.json"
     )
     original_plan = original_plan.to_crs(32030)
 
-    n = NUM_PROJECTED_PLANS_PER_CORE
+    n = 1
     procId = arg + 1
 
     for x in range(n):
-        fileId = (x + 1) + (procId - 1) * n
+        fileId = 2
 
         new_plan = gpd.read_file(
-            f"./{stateAbbr}/ensemble-{ensemble_id}/districts/plan-{fileId}.json"
+            f"./{stateAbbr}/ensemble-{ensemble_id}/districts/NVDISTRICT.json"
         )
         new_plan = new_plan.to_crs(32030)
+
+        # rename G20PREDBID column to Democratic, rename G20PRERTRU column to Republic
+        """
+        new_plan = new_plan.rename(
+            columns={"G20PREDBID": "Democratic", "G20PRERTRU": "Republic"}
+        )
+        """
+
+        # modify values in SLDL_DIST column to be formated string instead of integers
+        new_plan["SLDL_DIST"] = new_plan["SLDL_DIST"].apply(formatStr)
+
+        new_plan.to_file(
+            f"./{stateAbbr}/ensemble-{ensemble_id}/districts/NVDISTRICT_NEW.json",
+            driver="GeoJSON",
+        )
 
         print(f"For process {procId}, new_plan: {x}")
 
         # for each district in new_plan, find the district in original_plan that has the most similar geometry
         matrix = np.zeros((len(new_plan), len(original_plan)))  # 30 x 30
+        print("matrix.shape:", matrix.shape)
 
         for district in new_plan["SLDL_DIST"].unique():
             new_plan_district = new_plan.loc[new_plan["SLDL_DIST"] == district]
@@ -88,10 +107,12 @@ def reassign(arg):
                 matrix[int(district) - 1][int(original_district) - 1] = similarity
 
         new_plan["NEW_SLDL_DIST"] = 0
+        print("matrix:", matrix)
 
         while np.any(matrix):
             idx = unravel_index(matrix.argmax(), matrix.shape)
             dist = matrix[idx[0], idx[1]]
+            print("idx:", idx, ", dist:", dist)
 
             # reassign new_plans idx[0]th district to original_plans idx[1]th district
             # if NEW_SLDL_DIST already had that district, then skip
@@ -175,4 +196,4 @@ def start(state, num_cores, num_plans, ensembleId):
 
 
 if __name__ == "__main__":
-    start()
+    reassign(0)

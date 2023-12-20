@@ -67,6 +67,7 @@ def initWorker(state, num_cores, num_plans, id, ensembleId):
 
 
 def makeCluster(arg):
+    """
     start_time = datetime.now()
 
     queue = queue_core[arg]
@@ -100,46 +101,40 @@ def makeCluster(arg):
         else:
             print("Invalid distance measure id.")
             exit()
+    """
 
     return distance_matrix
 
 
 def start(state, id, num_cores, num_plans, ensembleId):
-    makedirs(f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}", exist_ok=True)
+    makedirs(
+        f"./{state}/ensemble-{ensembleId}/hammingClusterSubSet-{id+1}", exist_ok=True
+    )
 
-    with Pool(
-        initializer=initWorker,
-        initargs=(state, num_cores, num_plans, id, ensembleId),
-        processes=num_cores,
-    ) as pool:
-        res = pool.map(makeCluster, range(num_cores))
-        pool.close()
-        pool.join()
+    # load distance-matrix-summary.csv into a datafram and convert it into a numpy array
+    df = pd.read_csv(
+        f"./{state}/ensemble-{ensembleId}/distance-matrix-summary.csv",
+        index_col=0,
+    )
+    distances_normalize = df.to_numpy()[:num_plans, :num_plans]
 
-    print(current_process().name)
+    print("distances_normalize:", distances_normalize)
 
-    # aggregate all arrays in res into one
-    agg = np.zeros((num_plans, num_plans))
-    for i in range(len(res)):
-        mask = agg == 0
-        agg[mask] = res[i][mask]
-
-    # get symmetrized distance matrix
-    distances = np.maximum(agg, agg.transpose())
-    distances_normalize = distances / distances.max()
+    print("distances_normalize load finished")
     mds = MDS(n_components=2, random_state=0, dissimilarity="precomputed")
     pos = mds.fit(distances_normalize).embedding_
+    print("mds finished")
 
     # save distance matrix into a csv
     df = pd.DataFrame(distances_normalize)
     df.to_csv(
-        f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}/distance-matrix-summary.csv"
+        f"./{state}/ensemble-{ensembleId}/hammingClusterSubSet-{id+1}/distance-matrix-summary.csv"
     )
 
     # save pos into a csv
     df = pd.DataFrame(pos)
     df.to_csv(
-        f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}/plan-mds-coordinates-summary.csv"
+        f"./{state}/ensemble-{ensembleId}/hammingClusterSubSet-{id+1}/plan-mds-coordinates-summary.csv"
     )
 
     # using pos, run k-means clustering with elbow method to find optimal number of clusters
@@ -156,7 +151,9 @@ def start(state, id, num_cores, num_plans, ensembleId):
     plt.xlabel("k")
     plt.ylabel("Distortion")
     plt.title("The Elbow Method showing the optimal k")
-    plt.savefig(f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}/elbowPlot.png")
+    plt.savefig(
+        f"./{state}/ensemble-{ensembleId}/hammingClusterSubSet-{id+1}/elbowPlot.png"
+    )
     plt.close()
 
     # print("distortions:", distortions)
@@ -187,15 +184,18 @@ def start(state, id, num_cores, num_plans, ensembleId):
     # save cluster centers into a csv
     df = pd.DataFrame(centers)
     df.to_csv(
-        f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}/cluster-centers-summary.csv"
+        f"./{state}/ensemble-{ensembleId}/hammingClusterSubSet-{id+1}/cluster-centers-summary.csv"
     )
 
     # plot clusters
     plt.scatter(pos[:, 0], pos[:, 1], c=y_kmeans, s=50, cmap="viridis")
     plt.scatter(centers[:, 0], centers[:, 1], c="black", s=200, alpha=0.5)
-    plt.savefig(f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}/clusterPlot.png")
+    plt.savefig(
+        f"./{state}/ensemble-{ensembleId}/hammingClusterSubSet-{id+1}/clusterPlot.png"
+    )
     plt.close()
 
+    """
     # for all plans in district_reassigned folder, move them into their respective cluster folders. For example, if plan-1.json is in cluster 0, move it to clusterSet-0/cluster-0/plan-1.json
     for i in range(num_plans):
         plan = gpd.read_file(
@@ -213,10 +213,12 @@ def start(state, id, num_cores, num_plans, ensembleId):
             f"./{state}/ensemble-{ensembleId}/clusterSet-{id+1}/cluster-{y_kmeans[i]+1}/plan-{i+1}.json",
             driver="GeoJSON",
         )
+    """
 
     return y_kmeans
 
 
 if __name__ == "__main__":
-    # start("AZ", 0)
+    for l in [100] + [i for i in range(3000, 5100, 500)]:
+        start("AZ", l - 1, 0, l, 3)
     pass
